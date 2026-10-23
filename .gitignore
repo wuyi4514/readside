@@ -1,0 +1,23 @@
+# Local planning and private reference material
+task_plan.md
+findings.md
+progress.md
+.codex/
+.private/
+
+# Credentials and machine-specific files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+*.log
+
+# Future build and test output
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
