@@ -23,7 +23,7 @@ export async function updateAction(tabId: number, status: PageStatus): Promise<v
   const revision = (revisions.get(tabId) ?? 0) + 1; revisions.set(tabId, revision);
   const labels: Record<PageStatus['state'], string> = {
     working: `正在翻译 · 已完成 ${status.translated} 块`, ready: `已翻译 ${status.translated} 块`,
-    partial: '部分内容未完成，请打开弹窗查看', 'needs-download': '请先下载语言包', unsupported: '此页面或语言暂不支持',
+    partial: '部分内容未完成，请打开弹窗查看', 'needs-download': '请先准备翻译方向', unsupported: '此页面或语言暂不支持',
     off: '自动翻译已关闭', paused: '此页已恢复原文',
   };
   const imageData = status.state === 'working' ? await (working ??= workingIcon()) : undefined;

@@ -13,7 +13,7 @@ const SAMPLES: Record<SourceLanguage, string> = {
 type Key = SourceLanguage | 'detector';
 interface Pack {
   key: Key; availability: Availability; status: string; progress?: number;
-  phase: 'idle' | 'loading' | 'ready' | 'error'; controller?: AbortController;
+  phase: 'checking' | 'idle' | 'loading' | 'ready' | 'error'; controller?: AbortController;
   done?: Promise<void>; session?: NativeTranslator | NativeDetector;
 }
 
@@ -35,7 +35,7 @@ export class ModelPacks {
     this.sources = [...sources];
     for (const [key, pack] of this.packs) if (key !== 'detector' && !sources.includes(key)) { this.cancel(pack); this.packs.delete(key); }
     const keys: Key[] = [...sources, 'detector']; const apis = nativeAPIs(); const epoch = ++this.epoch;
-    for (const key of keys) if (!this.packs.has(key)) this.packs.set(key, { key, availability: 'downloadable', phase: 'idle', status: '正在检查…' });
+    for (const key of keys) if (!this.packs.has(key)) this.packs.set(key, { key, availability: 'downloadable', phase: 'checking', status: '正在检查…' });
     this.render();
     await Promise.all(keys.map(async key => {
       const pack = this.packs.get(key)!; if (pack.controller || pack.phase === 'ready') return;
@@ -44,7 +44,9 @@ export class ModelPacks {
       const availability = await probe?.catch(() => 'unavailable' as const) ?? 'unavailable';
       if (epoch !== this.epoch || pack.controller || !this.packs.has(key)) return;
       pack.availability = availability; pack.phase = availability === 'available' ? 'ready' : 'idle';
-      pack.status = availability === 'available' ? '已就绪' : availability === 'unavailable' ? '当前浏览器暂不支持' : availability === 'downloading' ? '下载尚未完成，点击继续' : '需要下载'; this.render();
+      // Chrome may report downloadable even when resources are cached. Only a
+      // native downloadprogress event is presented as download progress.
+      pack.status = availability === 'available' ? '已就绪' : availability === 'unavailable' ? '当前浏览器暂不支持' : '待准备'; this.render();
     }));
     this.render();
   }
@@ -62,8 +64,8 @@ export class ModelPacks {
         card = document.createElement('div'); card.className = `pack-card${key === 'detector' ? ' detector-card' : ''}`; card.dataset.language = key;
         const top = document.createElement('div'); top.className = 'pack-top';
         const info = document.createElement('div'); info.className = 'pack-info';
-        const name = document.createElement('div'); name.className = 'pack-name'; name.textContent = key === 'detector' ? '语言识别包' : languageLabel(key);
-        name.title = key === 'detector' ? '所有语言共用' : `${languageLabel(key)} → ${languageLabel(this.target)}`;
+        const name = document.createElement('div'); name.className = 'pack-name'; name.textContent = key === 'detector' ? '语言识别' : `${languageLabel(key)} → ${languageLabel(this.target)}`;
+        name.title = key === 'detector' ? '所有翻译方向共用' : name.textContent;
         const status = document.createElement('div'); status.className = 'pack-status'; status.setAttribute('role', 'status');
         info.append(name, status);
         const button = document.createElement('button'); button.type = 'button'; button.className = 'button secondary small pack-action';
@@ -79,38 +81,48 @@ export class ModelPacks {
       const status = card.querySelector<HTMLElement>('.pack-status')!;
       status.dataset.state = pack.phase; status.textContent = pack.status;
       const button = card.querySelector<HTMLButtonElement>('button')!;
-      const action = pack.controller ? '取消' : pack.phase === 'ready' ? '检查' : pack.phase === 'error' ? '重试' : '下载';
-      const label = `${action}${key === 'detector' ? '语言识别包' : languageLabel(key) + '语言包'}`;
+      const direction = key === 'detector' ? '语言识别' : `${languageLabel(key)} → ${languageLabel(this.target)}`;
+      const action = pack.controller ? '取消准备' : pack.phase === 'ready' ? '重新检查' : pack.phase === 'error' ? '重试准备' : '准备';
+      const label = `${action}${direction}`;
       button.setAttribute('aria-label', label); button.title = label; button.dataset.state = pack.phase;
-      button.disabled = pack.availability === 'unavailable' || key === this.target;
+      button.disabled = pack.phase === 'checking' || pack.availability === 'unavailable' || key === this.target;
       const progress = button.querySelector<SVGSVGElement>('svg')!;
       progress.style.display = pack.controller ? '' : 'none'; progress.classList.toggle('indeterminate', pack.progress === undefined);
-      progress.setAttribute('aria-label', `${key === 'detector' ? '语言识别包' : languageLabel(key)}下载进度`);
+      progress.setAttribute('aria-label', `${direction}${pack.progress === undefined ? '准备' : '下载'}进度`);
       if (pack.progress !== undefined) { progress.setAttribute('aria-valuenow', String(Math.round(pack.progress * 100))); progress.setAttribute('aria-valuetext', `${Math.round(pack.progress * 100)}%`); }
       else { progress.removeAttribute('aria-valuenow'); progress.setAttribute('aria-valuetext', '正在准备'); }
       (progress.querySelector('.circle-fill') as SVGCircleElement).style.strokeDashoffset = String(100 - (pack.progress ?? .22) * 100);
       let symbol = button.querySelector<HTMLElement>('.pack-symbol');
       if (!symbol) { symbol = document.createElement('span'); symbol.className = 'pack-symbol'; symbol.setAttribute('aria-hidden', 'true'); button.append(symbol); }
-      symbol.textContent = pack.controller ? '×' : key === this.target ? '—' : pack.phase === 'ready' ? '✓' : pack.phase === 'error' ? '↻' : '↓';
+      symbol.textContent = pack.controller ? '×' : key === this.target ? '—' : pack.phase === 'ready' ? '✓' : pack.phase === 'error' ? '重试' : '准备';
       if (this.host.children[index] !== card) this.host.insertBefore(card, this.host.children[index] ?? null);
     });
     const ready = this.ready(); const all = this.sources.every(source => this.packs.get(source)?.phase === 'ready') && detector?.phase === 'ready';
-    this.summary.textContent = this.sources.every(source => source === this.target) ? '源语言和目标语言相同，无需翻译。' : all ? '所选语言包已就绪' : ready ? '已就绪的语言可以使用，其余语言需先下载语言包。' : '首次使用需下载语言包，完成后在本地翻译。';
+    const checking = [...this.packs.values()].some(pack => pack.phase === 'checking');
+    const loading = [...this.packs.values()].some(pack => pack.controller);
+    const supported = this.sources.some(source => source !== this.target && this.packs.get(source)?.availability !== 'unavailable');
+    this.summary.textContent = this.sources.every(source => source === this.target) ? '源语言和目标语言相同，无需翻译。'
+      : checking ? '正在检查当前翻译方向…'
+      : all ? '所选翻译方向已就绪'
+      : loading ? '正在准备，已有模型会复用，缺少时按需下载。'
+      : ready ? '已就绪的方向可以使用，其余方向需先准备。'
+      : !supported ? '当前浏览器暂不支持所选翻译方向。'
+      : '点击“准备”启用当前方向；已有模型会复用，缺少时按需下载。';
     this.changed(ready);
   }
   private cancel(pack: Pack): void {
     pack.controller?.abort(); pack.controller = undefined; pack.session?.destroy(); pack.session = undefined;
-    if (pack.phase === 'loading') { pack.phase = 'idle'; pack.status = '已取消，可继续下载'; pack.progress = undefined; }
+    if (pack.phase === 'loading') { pack.phase = 'idle'; pack.status = '已取消，可继续准备'; pack.progress = undefined; }
   }
   private start(pack: Pack): void {
-    if (!pack || pack.controller || pack.availability === 'unavailable') return;
+    if (!pack || pack.phase === 'checking' || pack.controller || pack.availability === 'unavailable') return;
     const controller = new AbortController(); pack.controller = controller; pack.phase = 'loading'; pack.progress = undefined; pack.status = '正在准备…';
     const apis = nativeAPIs();
     const current = () => pack.controller === controller && !controller.signal.aborted && this.packs.get(pack.key) === pack;
     const monitor = (m: import('../providers/native-types').ProgressMonitor) => m.addEventListener('downloadprogress', event => {
       if (!current() || !Number.isFinite(event.loaded)) return;
       pack.progress = Math.min(1, Math.max(pack.progress ?? 0, event.loaded));
-      pack.status = pack.progress === 1 ? '下载完成，正在准备…' : `正在下载 · ${Math.round(pack.progress * 100)}%`; this.render();
+      pack.status = pack.progress === 1 ? '正在完成准备…' : `正在下载 · ${Math.round(pack.progress * 100)}%`; this.render();
     });
     // Do not await availability here: create must retain Chrome's transient activation.
     let creating: Promise<NativeTranslator | NativeDetector>;
@@ -122,7 +134,7 @@ export class ModelPacks {
       session = await creating;
       if (!current()) { session.destroy(); return; }
       pack.session = session;
-      pack.status = '正在验证…'; this.render();
+      pack.status = '正在完成准备…'; this.render();
       if (pack.key === 'detector') {
         const result = await (session as NativeDetector).detect(SAMPLES.en, { signal: controller.signal });
         if (!result.length) throw new Error('empty_detection');

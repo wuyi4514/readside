@@ -99,7 +99,7 @@ Offscreen Port 仅接受本扩展的准确页面来源。原网页没有可调�
 
 `ProductSelect` 为多选源语言、单选目标语言和字号提供共享的可访问 listbox。Popover 保持菜单在卡片裁切之外，支持方向键、Home、End、Enter、Space、Esc 和 Tab。勾选标记使用固定 viewBox 的 SVG，避免字体基线造成偏移。
 
-单选项保留原生输入语义并使用统一外观。圆环直接绑定浏览器 `downloadprogress.loaded`；没有数值时显示准备状态，不模拟百分比。目标变更使旧进度和完成回调失效。
+单选项保留原生输入语义并使用统一外观。翻译卡片显示完整方向；Chrome 的 `downloadable` 可能隐藏已有缓存，因此映射为“待准备”，仅用户点击“准备”后创建会话。圆环直接绑定浏览器 `downloadprogress.loaded`，没有数值时显示准备状态，不模拟百分比。目标变更取消旧任务，使旧进度与完成回调失效；返回已有方向时重新探测可用性，不由 Readside 删除浏览器模型。
 
 工具栏使用静态工作环与页面状态提示，弹窗内使用支持 reduced motion 的旋转环。
 

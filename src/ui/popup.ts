@@ -12,7 +12,7 @@ let engineReady = false;
 const source = new ProductSelect(element('source'), { label: '源语言', multiple: true, onChange: async values => {
   try {
     await update({ sourceLanguages: values as SourceLanguage[] }); engineReady = await anyLanguageReady(settings.sourceLanguages, settings.targetLanguage);
-    if (!engineReady) message('所选语言需要下载语言包，请打开设置。'); await refresh();
+    if (!engineReady) message('所选翻译方向尚未就绪，请在设置中准备。'); await refresh();
   } catch (error) { message(errorText(error), true); throw error; }
 } });
 const target = new ProductSelect(element('target'), { label: '目标语言', onChange: async values => {
@@ -36,10 +36,10 @@ function renderStatus(status: PageStatus, fallback?: string): void {
     off: '自动翻译已关闭', paused: '此页已恢复原文', working: '正在翻译…',
     ready: status.translated ? `已对照 ${status.translated} 块内容` : '未发现可翻译的内容',
     partial: `已对照 ${status.translated} 块，部分内容未完成`,
-    'needs-download': '请先下载语言包', unsupported: '此页面或语言暂不支持',
+    'needs-download': '请先准备翻译方向', unsupported: '此页面或语言暂不支持',
   };
   const missing = status.missingLanguages?.map(code => LANGUAGES.find(l => l.code === code)?.label ?? code).join('、');
-  element('status-text').textContent = fallback ?? (missing ? `${missing}语言包未就绪，请在设置中下载` : label[status.state]);
+  element('status-text').textContent = fallback ?? (missing ? `${missing}翻译方向未就绪，请在设置中准备` : label[status.state]);
   element('retry').hidden = status.state !== 'partial';
 }
 async function pageMessage(command: Message, inject = false): Promise<PageStatus> {
@@ -56,7 +56,7 @@ async function refresh(): Promise<void> {
     const status = await pageMessage({ type: 'PR_GET_STATUS' });
     renderStatus(status, status.state === 'off' && settings.autoTranslate && !settings.autoTranslateAllPages && !selected ? '此网站尚未开启自动翻译' : undefined);
   } catch {
-    renderStatus(EMPTY_STATUS, !supported() ? '此页面不支持翻译' : !engineReady ? '请先在设置中下载语言包' : settings.autoTranslate ? '此网站尚未开启自动翻译' : '自动翻译已关闭');
+    renderStatus(EMPTY_STATUS, !supported() ? '此页面不支持翻译' : !engineReady ? '请先在设置中准备翻译方向' : settings.autoTranslate ? '此网站尚未开启自动翻译' : '自动翻译已关闭');
   }
 }
 async function update(patch: Partial<Settings>): Promise<void> {

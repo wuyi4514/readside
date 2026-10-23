@@ -34,10 +34,10 @@ Readside 依据通用内容语义和布局识别阅读区域，不依赖特定�
 
 ## 安装
 
-1. 前往 [Releases](https://github.com/wuyi4514/readside/releases/latest)，下载 `readside-0.2.3.zip` 并解压。
+1. 前往 [Releases](https://github.com/wuyi4514/readside/releases/latest)，下载 `readside-0.2.4.zip` 并解压。
 2. 在桌面 Chrome 打开 `chrome://extensions`，开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
-4. 固定 Readside，打开设置，选择语言并下载对应语言包。
+4. 固定 Readside，打开设置，选择语言并准备对应翻译方向。
 
 开启自动翻译并授予网站访问权限后，打开网页即可开始对照阅读。详细步骤见[安装指南](docs/INSTALL.md)。
 
@@ -45,7 +45,7 @@ Readside 依据通用内容语义和布局识别阅读区域，不依赖特定�
 
 默认将英语翻译为简体中文。你可以选择多种源语言，并将它们统一翻译成一个目标语言；未选择的语言保持原样。
 
-语言包按源语言与目标语言分别准备，圆环显示下载进度，可取消和重新下载。与目标语言相同的内容无需翻译。可用语言方向由当前 Chrome 的本地翻译能力决定。
+翻译能力按“源语言 → 目标语言”准备，已有模型由浏览器复用，缺少时按需下载。实际下载时显示圆环进度，支持取消与重试；源与目标相同时无需翻译。可用方向由当前 Chrome 的本地翻译能力决定。
 
 <details>
 <summary>查看设置界面</summary>

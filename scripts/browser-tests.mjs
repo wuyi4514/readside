@@ -359,7 +359,7 @@ try {
     await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.sourceLanguages.length === 6);
     assert.equal(await options.locator('.pack-card:not(.detector-card)').count(), 6);
     for (const label of ['英语','法语','西班牙语','德语','日语','韩语']) {
-      const button = options.getByRole('button', { name: `下载${label}语言包`, exact: true }); if (await button.count()) await button.click();
+      const button = options.getByRole('button', { name: `准备${label} → 简体中文`, exact: true }); if (await button.count()) await button.click();
     }
     await options.waitForFunction(() => document.querySelectorAll('.pack-status[data-state=ready]').length === 6, {}, { timeout: 60000 });
     await options.screenshot({ path: path.join(evidenceDir, 'settings-multilingual.png'), fullPage: true });
@@ -412,7 +412,7 @@ try {
       await options.waitForFunction(async code => (await chrome.storage.local.get('settings')).settings.targetLanguage === code, targetCode);
       // The UI may require a first create at this extension origin even for cached models.
       for (const source of ['英语','简体中文']) {
-        const button = options.getByRole('button', { name: `下载${source}语言包`, exact: true }); if (await button.count() && await button.isEnabled()) await button.click();
+        const button = options.getByRole('button', { name: `准备${source} → ${targetLabel}`, exact: true }); if (await button.count() && await button.isEnabled()) await button.click();
       }
       const targetPage = await context.newPage(); await targetPage.goto('http://127.0.0.1:9329/multilingual.html'); await targetPage.bringToFront();
       await targetPage.locator(`#${sourceId}`).scrollIntoViewIfNeeded();

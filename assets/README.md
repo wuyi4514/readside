@@ -23,6 +23,6 @@ Readside 使用蓝色圆角方形和白色小写字母 r 作为产品图标，�
 
 ## 阅读效果图
 
-`reading-example.jpg` 截取自 [Anthropic News](https://www.anthropic.com/news)，展示 Readside 在原文下方生成的中文译文。图片随扩展打包，不从原站远程加载。
+`reading-example.jpg` 截取自 [Harness design for long-running application development](https://www.anthropic.com/research/harness-design-long-running-apps)，展示 Readside 在原文下方生成的中文译文。图片随扩展打包，不从原站远程加载。
 
 截图中的原网页内容、配图和品牌归其各自权利方所有。

@@ -16,7 +16,7 @@ export class AutomaticControls {
   constructor(private settings: () => Settings, private ready: () => boolean, private save: (patch: Partial<Settings>) => Promise<void>) {
     onChoice('auto', enabled => {
       if (this.pending) return;
-      if (enabled && !this.ready()) { message('请先在设置中下载语言包。', true); this.render(); return; }
+      if (enabled && !this.ready()) { message('请先在设置中准备翻译方向。', true); this.render(); return; }
       // Start the optional permission request directly in the actual input event.
       const request = enabled && this.settings().autoTranslateAllPages
         ? chrome.permissions.request({ origins: ['https://*/*'] }) : Promise.resolve(true);
