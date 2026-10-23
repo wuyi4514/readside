@@ -23,3 +23,14 @@
 准备过程曾因测试原型新增 manifest 权限后 reload 被 Chrome 禁用；修正为重新安装原型后验证。该事件是安装／权限变化行为，不是翻译 API 不可用。
 
 官方依据：[Translator API](https://developer.chrome.com/docs/ai/translator-api)、[Language Detector](https://developer.chrome.com/docs/ai/language-detection)、[CDP Extensions](https://chromedevtools.github.io/devtools-protocol/tot/Extensions/)。
+
+
+## 0.2.0 多语言引擎修订（2026-10-23）
+
+上述 M0 记录属于早期英语→简体中文方向，不可直接推广到所有语言。扩大语言后发现，在新网页上，部分已缓存的语言方向仍报告 downloadable，并要求该来源的首次用户激活；仅在设置页下载后让每个网页直接 create 不能满足完整多语言自动运行。
+
+0.2.0 改为扩展来源的 offscreen Window 执行 native API，实际专用 Worker 管理有界队列、取消和过期任务。页面只提取、筛选、缓存与渲染；纯文本片段经受信扩展内部 RPC 流转，不上传。首次准备依然在真实设置页按钮手势内完成。需要新增 offscreen 权限，原因 WORKERS 与真实实现一致。
+
+已在独立 Chrome155 配置中通过六种源语言→简体中文、关闭设置页后新 HTTPS origin 自动执行；下载圆环取消／重试也在另一个全新 profile 真实执行。方向切换和当前回归结果以 VALIDATION.md 与结构化检查为准，未以 CDP userGesture 冒充网页自动执行。
+
+参考：[Translator 的来源状态与激活要求](https://developer.chrome.com/docs/ai/translator-api)、[offscreen](https://developer.chrome.com/docs/extensions/reference/api/offscreen)。

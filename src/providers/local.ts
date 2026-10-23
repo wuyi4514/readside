@@ -1,3 +1,4 @@
+import { apiLanguage } from '../shared/settings';
 import { TextCache } from '../shared/cache';
 import { nativeAPIs, type NativeDetector, type NativeTranslator } from './native-types';
 
@@ -12,17 +13,18 @@ export class LocalEngine {
   private lifecycle = new AbortController();
   private translations = new TextCache<string>();
   private detections = new TextCache<LanguageCandidate[]>(1000, 1024 * 1024);
-  constructor(readonly source: string) {}
+  constructor(readonly source: string, readonly target = 'zh-CN', private apis = nativeAPIs, private guardWindowActivation = true) {}
 
   private async translationSession(): Promise<NativeTranslator> {
     if (!this.translator) {
       this.translator = (async () => {
-        const api = nativeAPIs().translator;
+        const api = this.apis().translator;
         if (!api || !isSecureContext) throw new EngineError('unsupported_browser');
-        const availability = await api.availability({ sourceLanguage: this.source, targetLanguage: 'zh' });
+        const availability = await api.availability({ sourceLanguage: apiLanguage(this.source), targetLanguage: apiLanguage(this.target) });
         if (availability === 'unavailable') throw new EngineError('unsupported_pair');
-        if (availability !== 'available') throw new EngineError('needs_download');
-        return api.create({ sourceLanguage: this.source, targetLanguage: 'zh', signal: this.lifecycle.signal });
+        if (availability !== 'available' && this.guardWindowActivation) await withoutActivation(this.lifecycle.signal);
+        try { return await api.create({ sourceLanguage: apiLanguage(this.source), targetLanguage: apiLanguage(this.target), signal: this.lifecycle.signal }); }
+        catch (error) { throw creationError(error); }
       })();
       void this.translator.catch(() => { this.translator = undefined; });
     }
@@ -32,10 +34,12 @@ export class LocalEngine {
   private async detectionSession(): Promise<NativeDetector> {
     if (!this.detector) {
       this.detector = (async () => {
-        const api = nativeAPIs().detector;
+        const api = this.apis().detector;
         if (!api) throw new EngineError('unsupported_browser');
-        if (await api.availability() !== 'available') throw new EngineError('needs_download');
-        return api.create({ signal: this.lifecycle.signal });
+        const availability = await api.availability();
+        if (availability === 'unavailable') throw new EngineError('unsupported_browser');
+        if (availability !== 'available' && this.guardWindowActivation) await withoutActivation(this.lifecycle.signal);
+        try { return await api.create({ signal: this.lifecycle.signal }); } catch (error) { throw creationError(error); }
       })();
       void this.detector.catch(() => { this.detector = undefined; });
     }
@@ -72,4 +76,20 @@ export class LocalEngine {
     void this.detector?.then(d => d.destroy()).catch(() => undefined);
     this.translator = undefined; this.detector = undefined; this.clearCache();
   }
+}
+
+/** Chrome may report downloadable for a cached pair at a new origin. Only try
+ * cached creation without activation, so a real missing model cannot download
+ * using a webpage click. Actual downloads require the settings-page gesture. */
+async function withoutActivation(signal: AbortSignal): Promise<void> {
+  while (navigator.userActivation?.isActive) {
+    signal.throwIfAborted();
+    await new Promise<void>(resolve => setTimeout(resolve, 150));
+  }
+  signal.throwIfAborted();
+}
+function creationError(error: unknown): unknown {
+  const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  if (['NotAllowedError', 'InvalidStateError'].includes(name)) return new EngineError('needs_download');
+  return name === 'NotSupportedError' ? new EngineError('unsupported_pair') : error;
 }

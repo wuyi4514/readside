@@ -1,13 +1,25 @@
 import { EMPTY_STATUS, loadSettings, saveSettings, type Message, type PageStatus } from '../shared/messages';
-import { DEFAULT_SETTINGS, sanitizeSettings, validOrigin, type Settings, type SourceLanguage } from '../shared/settings';
-import { element, errorText, message, optionsPage, populateLanguages, readiness } from './common';
+import { DEFAULT_SETTINGS, LANGUAGES, sanitizeSettings, validOrigin, type Settings, type TargetLanguage, type SourceLanguage } from '../shared/settings';
+import { element, errorText, message, optionsPage, anyLanguageReady } from './common';
+import { ProductSelect } from './select';
+import { populateLanguages } from './languages';
 import { AutomaticControls, onChoice, setChoice } from './automatic';
 
 let settings: Settings = { ...DEFAULT_SETTINGS, siteRules: {} };
 let tab: chrome.tabs.Tab | undefined;
 let origin: string | null = null;
 let engineReady = false;
-const source = element<HTMLSelectElement>('source');
+const source = new ProductSelect(element('source'), { label: '源语言', multiple: true, onChange: async values => {
+  try {
+    await update({ sourceLanguages: values as SourceLanguage[] }); engineReady = await anyLanguageReady(settings.sourceLanguages, settings.targetLanguage);
+    if (!engineReady) message('所选语言需要下载语言包，请打开设置。'); await refresh();
+  } catch (error) { message(errorText(error), true); throw error; }
+} });
+const target = new ProductSelect(element('target'), { label: '目标语言', onChange: async values => {
+  try { await update({ targetLanguage: values[0] as TargetLanguage }); await refreshLanguages(); }
+  catch (error) { message(errorText(error), true); throw error; }
+} });
+target.setOptions([{ value: 'zh-CN', label: '简体中文' }, ...LANGUAGES.filter(l => l.code !== 'zh-CN').map(l => ({ value: l.code, label: l.label }))]);
 const automatic = new AutomaticControls(() => settings, () => engineReady, update);
 
 function permissionPattern(): string | null {
@@ -26,7 +38,8 @@ function renderStatus(status: PageStatus, fallback?: string): void {
     partial: `已对照 ${status.translated} 块，部分内容未完成`,
     'needs-download': '请先下载语言包', unsupported: '此页面或语言暂不支持',
   };
-  element('status-text').textContent = fallback ?? label[status.state];
+  const missing = status.missingLanguages?.map(code => LANGUAGES.find(l => l.code === code)?.label ?? code).join('、');
+  element('status-text').textContent = fallback ?? (missing ? `${missing}语言包未就绪，请在设置中下载` : label[status.state]);
   element('retry').hidden = status.state !== 'partial';
 }
 async function pageMessage(command: Message, inject = false): Promise<PageStatus> {
@@ -66,25 +79,23 @@ element('allow-site').addEventListener('click', () => {
     if (!settings.autoTranslate) message('已允许此网站。开启自动翻译后生效。');
   }).catch(error => message(errorText(error), true));
 });
-source.addEventListener('change', () => {
-  void update({ sourceLanguage: source.value as SourceLanguage }).then(async () => {
-    engineReady = await readiness(settings.sourceLanguage) === 'available';
-    if (!engineReady) message('该语言需要下载语言包，请打开设置。');
-    await refresh();
-  }).catch(error => message(errorText(error), true));
-});
 onChoice('selection', enabled => { void update({ selectionLookup: enabled }).catch(error => message(errorText(error), true)); });
 element('settings').addEventListener('click', optionsPage);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes.settings?.newValue) return;
-  const previousSource = settings.sourceLanguage;
-  settings = sanitizeSettings(changes.settings.newValue); automatic.render(); setChoice('selection', settings.selectionLookup); source.value = settings.sourceLanguage;
-  if (previousSource !== settings.sourceLanguage) void readiness(settings.sourceLanguage).then(result => { engineReady = result === 'available'; }).catch(() => { engineReady = false; });
+  const previousSource = settings.sourceLanguages.join(',') + '>' + settings.targetLanguage;
+  settings = sanitizeSettings(changes.settings.newValue); automatic.render(); setChoice('selection', settings.selectionLookup); source.setValues(settings.sourceLanguages); target.setValues([settings.targetLanguage]);
+  if (previousSource !== settings.sourceLanguages.join(',') + '>' + settings.targetLanguage) void refreshLanguages();
 });
+let languageEpoch = 0;
+async function refreshLanguages(): Promise<void> {
+  const epoch = ++languageEpoch; const snapshot = settings;
+  target.setValues([snapshot.targetLanguage]); await populateLanguages(source, snapshot.sourceLanguages, snapshot.targetLanguage);
+  if (epoch !== languageEpoch) return; const ready = await anyLanguageReady(snapshot.sourceLanguages, snapshot.targetLanguage); if (epoch === languageEpoch) engineReady = ready;
+}
 void (async () => {
   settings = await loadSettings(); [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); origin = validOrigin(tab?.url);
-  automatic.render(); setChoice('selection', settings.selectionLookup); await populateLanguages(source, settings.sourceLanguage);
-  engineReady = await readiness(settings.sourceLanguage).catch(() => 'unavailable') === 'available'; await refresh();
+  automatic.render(); setChoice('selection', settings.selectionLookup); await refreshLanguages(); await refresh();
 })().catch(error => message(errorText(error), true));
 const poll = window.setInterval(() => { void refresh(); }, 1200);
 window.addEventListener('pagehide', () => clearInterval(poll));

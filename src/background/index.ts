@@ -1,6 +1,8 @@
 import { DEFAULT_SETTINGS, sanitizeSettings, type Settings } from '../shared/settings';
 import type { Message } from '../shared/messages';
 import { isExtensionUI } from '../shared/sender';
+import { nativeMessage } from './native-host';
+import { updateAction, forgetAction } from './action-icon';
 
 const KEY = 'settings';
 const SCRIPT_ID = 'parallel-read';
@@ -70,10 +72,12 @@ chrome.permissions.onAdded.addListener(() => {
 chrome.permissions.onRemoved.addListener(() => {
   void register().then(async () => notify(await getSettings())).catch(() => undefined);
 });
+chrome.tabs.onRemoved.addListener(forgetAction);
 chrome.tabs.onActivated.addListener(() => { void injectActive(); });
 
 chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
   if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object') return;
+  if (['PR_NATIVE', 'PR_NATIVE_CANCEL'].includes(message.type)) return nativeMessage(message as unknown as Record<string, unknown>, sender, reply);
   if (message.type === 'PR_GET_SETTINGS') {
     void getSettings().then(async settings => reply({ settings, autoAllowed: sender.tab ? await permitted(sender.url) : false })).catch(() => reply({ error: 'storage_error' }));
     return true;
@@ -83,12 +87,16 @@ chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
       const previous = await getSettings();
       const patch = message.patch;
       if (!patch || typeof patch !== 'object' || JSON.stringify(patch).length > 100_000) throw new Error('invalid_settings');
-      const next = sanitizeSettings({ ...previous, ...patch, schemaVersion: 1, settingsVersion: previous.settingsVersion + 1 });
+      const next = sanitizeSettings({ ...previous, ...patch, schemaVersion: 2, settingsVersion: previous.settingsVersion + 1 });
       await chrome.storage.local.set({ [KEY]: next });
       await notify(next);
       if (next.autoTranslate) await injectActive();
       reply({ settings: next });
     }).catch(() => reply({ error: 'storage_error' }));
+    return true;
+  }
+  if (message.type === 'PR_MODELS_READY' && isUI(sender)) {
+    void chrome.tabs.query({}).then(tabs => Promise.allSettled(tabs.filter(t => t.id !== undefined).map(tab => chrome.tabs.sendMessage(tab.id!, { type: 'PR_RETRY' })))).then(() => reply({ ok: true }));
     return true;
   }
   if (message.type === 'PR_CLEAR_CACHE' && isUI(sender)) {
@@ -98,8 +106,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
   if (message.type === 'PR_STATUS' && sender.tab?.id !== undefined && sender.frameId === 0) {
     const status = message.status;
     if (!status || typeof status.state !== 'string') return;
-    const text = status.state === 'working' ? '·' : ['needs-download', 'unsupported'].includes(status.state) ? '!' : '';
-    void chrome.action.setBadgeText({ tabId: sender.tab.id, text }).catch(() => undefined);
-    void chrome.action.setBadgeBackgroundColor({ tabId: sender.tab.id, color: '#25272c' }).catch(() => undefined);
+    void updateAction(sender.tab.id, status).catch(() => undefined);
   }
 });

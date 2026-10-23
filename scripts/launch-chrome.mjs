@@ -25,7 +25,7 @@ if (!available) throw new Error('Test Chrome could not start on port 9327.');
 const browser = await chromium.connectOverCDP(endpoint);
 const cdp = await browser.newBrowserCDPSession();
 const extensions = await cdp.send('Extensions.getExtensions');
-for (const extension of extensions.extensions) if (['Parallel Read · 对照读', '伴读 · Readside'].includes(extension.name)) await cdp.send('Extensions.uninstall', { id: extension.id });
+for (const extension of extensions.extensions) if (['Parallel Read · 对照读', '伴读 · Readside', 'Readside'].includes(extension.name)) await cdp.send('Extensions.uninstall', { id: extension.id });
 const { id } = await cdp.send('Extensions.loadUnpacked', { path: path.join(root, 'dist') });
 const page = await browser.contexts()[0].newPage();
 await page.goto(`chrome-extension://${id}/options.html`);

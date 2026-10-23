@@ -6,34 +6,38 @@
       "url": "https://www.anthropic.com/news",
       "title": "Newsroom \\ Anthropic",
       "translations": 6,
-      "overflow": false
+      "overflow": false,
+      "observationVersion": "0.1.1-preview.2"
     },
     {
       "name": "english-blog",
       "url": "https://www.joshwcomeau.com/css/interactive-guide-to-flexbox/",
       "title": "An Interactive Guide to Flexbox in CSS • Josh W. Comeau",
       "translations": 2,
-      "overflow": false
+      "overflow": false,
+      "observationVersion": "0.1.1-preview.2"
     },
     {
       "name": "github",
       "url": "https://github.com/features",
       "title": "GitHub Features · GitHub",
       "translations": 2,
-      "overflow": false
+      "overflow": false,
+      "observationVersion": "0.1.1-preview.2"
     },
     {
       "name": "x-public",
       "url": "https://x.com/OpenAI",
       "title": "OpenAI (@OpenAI) / X",
       "translations": 3,
-      "overflow": false
+      "overflow": false,
+      "observationVersion": "0.1.1-preview.2"
     },
     {
       "name": "granola",
       "url": "https://www.granola.ai/",
       "title": "Granola — The AI Notepad for back-to-back meetings",
-      "translations": 7,
+      "translations": 8,
       "overflow": false,
       "quotes": [
         {
@@ -44,7 +48,8 @@
           "translated": true,
           "fontSize": "18px"
         }
-      ]
+      ],
+      "observationVersion": "0.2.0-preview.3"
     }
   ]
 }

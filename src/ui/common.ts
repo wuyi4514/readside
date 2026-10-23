@@ -1,4 +1,4 @@
-import { LANGUAGES, type SourceLanguage } from '../shared/settings';
+import { apiLanguage } from '../shared/settings';
 import { nativeAPIs, type Availability } from '../providers/native-types';
 
 export function element<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -12,27 +12,10 @@ export function message(text: string, error = false): void {
   target.textContent = text; target.hidden = !text; target.classList.toggle('error', error);
 }
 
-export async function populateLanguages(select: HTMLSelectElement, selected: SourceLanguage): Promise<void> {
-  select.replaceChildren(...LANGUAGES.map(language => {
-    const option = document.createElement('option');
-    option.value = language.code; option.textContent = language.label;
-    return option;
-  }));
-  select.value = selected;
-  const api = nativeAPIs().translator;
-  if (api) await Promise.all([...select.options].map(async option => {
-    try {
-      if (await api.availability({ sourceLanguage: option.value, targetLanguage: 'zh' }) === 'unavailable') {
-        option.disabled = true; option.textContent += '（暂不支持）';
-      }
-    } catch { /* A failed probe is reported by readiness, never silently enabled. */ }
-  }));
-}
-
-export async function readiness(source: string): Promise<Availability> {
+export async function readiness(source: string, target = 'zh-CN'): Promise<Availability> {
   const api = nativeAPIs();
   if (!api.translator || !api.detector) return 'unavailable';
-  const states = await Promise.all([api.translator.availability({ sourceLanguage: source, targetLanguage: 'zh' }), api.detector.availability()]);
+  const states = await Promise.all([api.translator.availability({ sourceLanguage: apiLanguage(source), targetLanguage: apiLanguage(target) }), api.detector.availability()]);
   if (states.includes('unavailable')) return 'unavailable';
   if (states.every(s => s === 'available')) return 'available';
   return states.includes('downloading') ? 'downloading' : 'downloadable';
@@ -44,3 +27,7 @@ export function errorText(error: unknown): string {
 }
 
 export function optionsPage(): void { void chrome.runtime.openOptionsPage(); }
+
+export async function anyLanguageReady(sources: readonly string[], target = 'zh-CN'): Promise<boolean> {
+  return (await Promise.all(sources.filter(source => source !== target).map(source => readiness(source, target).catch(() => 'unavailable')))).some(state => state === 'available');
+}

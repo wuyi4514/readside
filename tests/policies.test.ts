@@ -2,10 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, sanitizeSettings, shouldAutoTranslate } from '../src/shared/settings';
 import { TextCache } from '../src/shared/cache';
 import { contrast, parseColor, secondaryColor } from '../src/content/color';
-import { classify, languageGate, translatableSegments } from '../src/content/language';
+import { classify, languageGate, translatableSegments, selectedSegments } from '../src/content/language';
 import { candidates, entryKey, sourceText } from '../src/content/extractor';
 
 describe('settings and rules', () => {
+  it('migrates the old language and preserves explicit website scope', () => {
+    const previous = sanitizeSettings({ schemaVersion: 1, sourceLanguage: 'fr', autoTranslate: true, autoTranslateAllPages: false, siteRules: { 'https://example.com': 'always' } });
+    expect(previous.schemaVersion).toBe(2); expect(previous.sourceLanguages).toEqual(['fr']); expect(previous.autoTranslate).toBe(true); expect(previous.autoTranslateAllPages).toBe(false);
+    const multiple = sanitizeSettings({ ...previous, sourceLanguages: ['fr','en','fr','bogus','ko'] });
+    expect(multiple.sourceLanguages).toEqual(['en','fr','ko']);
+    expect(sanitizeSettings({ sourceLanguages: ['zh-CN'], targetLanguage: 'en' })).toMatchObject({ sourceLanguages: ['zh-CN'], targetLanguage: 'en' });
+    expect(sanitizeSettings({ sourceLanguages: [] }).sourceLanguages).toEqual(['en']);
+  });
   it('global off wins over an always rule; document pause wins over global on', () => {
     const s = sanitizeSettings({ ...DEFAULT_SETTINGS, siteRules: { 'https://example.com': 'always' } });
     expect(shouldAutoTranslate(s, 'https://example.com')).toBe(false);
@@ -19,8 +27,8 @@ describe('settings and rules', () => {
     expect(shouldAutoTranslate(s, 'https://blog.example.com')).toBe(true);
   });
   it('unknown storage schema fails closed, invalid languages cannot change the target', () => {
-    const s = sanitizeSettings({ schemaVersion: 20, autoTranslate: true, sourceLanguage: '??', targetLanguage: 'ja', translationScale: 12, siteRules: { 'javascript:bad': 'always', 'https://example.com/path': 'never' } });
-    expect(s.autoTranslate).toBe(false); expect(s.sourceLanguage).toBe('en'); expect(s.targetLanguage).toBe('zh-CN'); expect(s.translationScale).toBe(1); expect(s.siteRules).toEqual({});
+    const s = sanitizeSettings({ schemaVersion: 20, autoTranslate: true, sourceLanguage: '??', targetLanguage: 'unknown', translationScale: 12, siteRules: { 'javascript:bad': 'always', 'https://example.com/path': 'never' } });
+    expect(s.autoTranslate).toBe(false); expect(s.sourceLanguages).toEqual(['en']); expect(s.targetLanguage).toBe('zh-CN'); expect(s.translationScale).toBe(1); expect(s.siteRules).toEqual({});
   });
 });
 
@@ -72,6 +80,10 @@ describe('language filtering', () => {
   });
   it('does not translate the French sentence in a mixed-language block', async () => {
     expect(await translatableSegments(`${en} ${fr}`,'en',detector,signal)).toEqual([en]);
+  });
+  it('routes selected languages separately and keeps unselected languages out', async () => {
+    expect(await selectedSegments(`${en} ${fr}`, ['en','fr'], detector, signal)).toEqual([{ text: en, source: 'en' },{ text: fr, source: 'fr' }]);
+    expect(await selectedSegments(`${en} ${fr}`, ['fr'], detector, signal)).toEqual([{ text: fr, source: 'fr' }]);
   });
   it('short titles inherit only consistent local evidence', async () => {
     expect((await languageGate('A clearer view','en',detector,signal,en)).result).toBe('match');

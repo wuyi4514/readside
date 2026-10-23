@@ -1,27 +1,30 @@
 import { loadSettings, saveSettings } from '../shared/messages';
-import { DEFAULT_SETTINGS, sanitizeSettings, type Settings, type SourceLanguage } from '../shared/settings';
-import { nativeAPIs, type Availability, type NativeDetector, type NativeTranslator } from '../providers/native-types';
-import { element, errorText, message, populateLanguages, readiness } from './common';
+import { DEFAULT_SETTINGS, LANGUAGES, sanitizeSettings, type Settings, type TargetLanguage, type SourceLanguage } from '../shared/settings';
+import { ModelPacks } from './model-packs';
+import { ProductSelect } from './select';
+import { populateLanguages } from './languages';
+import { element, errorText, message } from './common';
 import { AutomaticControls, onChoice, setChoice } from './automatic';
 
 let settings: Settings = { ...DEFAULT_SETTINGS, siteRules: {} };
-let engine: Availability = 'unavailable';
-let preparing: AbortController | undefined;
-let probeEpoch = 0;
-const source = element<HTMLSelectElement>('source');
-const font = element<HTMLSelectElement>('font-size');
-const state = element('engine-state');
-const prepare = element<HTMLButtonElement>('prepare');
-const automatic = new AutomaticControls(() => settings, () => engine === 'available', update);
+let engineReady = false;
+const source = new ProductSelect(element('source'), { label: '源语言', multiple: true, onChange: async values => {
+  try { await update({ sourceLanguages: values as SourceLanguage[] }); await refreshLanguages(); }
+  catch (error) { message(errorText(error), true); throw error; }
+} });
+const font = new ProductSelect(element('font-size'), { label: '译文最小字号', onChange: async values => {
+  try { await update({ minimumTranslationFontPx: Number(values[0]) as 12 | 14 | 16 }); }
+  catch (error) { message(errorText(error), true); throw error; }
+} });
+font.setOptions([12, 14, 16].map(size => ({ value: String(size), label: `${size} px` })));
+const target = new ProductSelect(element('target'), { label: '目标语言', onChange: async values => {
+  try { await update({ targetLanguage: values[0] as TargetLanguage }); await refreshLanguages(); }
+  catch (error) { message(errorText(error), true); throw error; }
+} });
+target.setOptions([{ value: 'zh-CN', label: '简体中文' }, ...LANGUAGES.filter(l => l.code !== 'zh-CN').map(l => ({ value: l.code, label: l.label }))]);
+const automatic = new AutomaticControls(() => settings, () => engineReady, update);
+const packs = new ModelPacks(element('language-packs'), element('engine-state'), ready => { engineReady = ready; automatic.render(); });
 
-async function refreshEngine(): Promise<void> {
-  const epoch = ++probeEpoch;
-  const result = await readiness(settings.sourceLanguage).catch(() => 'unavailable' as const);
-  if (epoch !== probeEpoch) return;
-  engine = result; state.classList.toggle('error', result === 'unavailable');
-  state.textContent = result === 'available' ? '语言包已就绪' : result === 'unavailable' ? '当前浏览器或语言暂不支持' : result === 'downloading' ? '语言包下载中' : '首次使用需下载语言包';
-  prepare.textContent = result === 'available' ? '检查语言包' : '下载语言包'; prepare.disabled = result === 'unavailable';
-}
 async function refreshPermissions(): Promise<void> {
   const all = await chrome.permissions.contains({ origins: ['https://*/*'] });
   element('permission-state').textContent = !settings.autoTranslateAllPages
@@ -43,44 +46,24 @@ function renderRules(): void {
 async function update(patch: Partial<Settings>): Promise<void> {
   settings = await saveSettings(patch); automatic.render(); renderRules(); await refreshPermissions();
 }
-prepare.addEventListener('click', () => {
-  const apis = nativeAPIs(); if (!apis.translator || !apis.detector) return;
-  preparing?.abort(); preparing = new AbortController(); const controller = preparing;
-  const progress = element<HTMLProgressElement>('progress'); progress.hidden = false; progress.value = 0;
-  element('cancel-prepare').hidden = false; prepare.disabled = true; source.disabled = true;
-  state.classList.remove('error'); state.textContent = '正在下载语言包，请保持页面打开…';
-  let translating: NativeTranslator | undefined; let detecting: NativeDetector | undefined;
-  const translation = apis.translator.create({ sourceLanguage: settings.sourceLanguage, targetLanguage: 'zh', signal: controller.signal, monitor: m => m.addEventListener('downloadprogress', e => { progress.value = Math.max(progress.value, e.loaded * 0.9); }) });
-  const detection = apis.detector.create({ signal: controller.signal });
-  void (async () => {
-    const [first, second] = await Promise.allSettled([translation, detection]);
-    if (first.status === 'fulfilled') translating = first.value; if (second.status === 'fulfilled') detecting = second.value;
-    if (first.status === 'rejected') throw first.reason; if (second.status === 'rejected') throw second.reason;
-    controller.signal.throwIfAborted();
-    const samples: Record<SourceLanguage, string> = { en: 'Read the world, one page at a time.', fr: 'Découvrez le monde, une page à la fois.', es: 'Descubre el mundo, una página a la vez.', de: 'Entdecke die Welt, eine Seite nach der anderen.', ja: '一ページずつ、世界を読みましょう。', ko: '한 페이지씩 세상을 읽어 보세요.' };
-    const result = await translating!.translate(samples[settings.sourceLanguage], { signal: controller.signal });
-    if (!result.trim()) throw new Error('empty_translation'); progress.value = 1; message(`语言包可用。试译：${result}`);
-  })().catch(error => message(errorText(error), true)).finally(() => {
-    translating?.destroy(); detecting?.destroy(); prepare.disabled = false; source.disabled = false;
-    progress.hidden = true; element('cancel-prepare').hidden = true; if (preparing === controller) preparing = undefined; void refreshEngine();
-  });
-});
-element('cancel-prepare').addEventListener('click', () => preparing?.abort());
-source.addEventListener('change', () => { void update({ sourceLanguage: source.value as SourceLanguage }).then(refreshEngine).catch(error => message(errorText(error), true)); });
 onChoice('selection', enabled => { void update({ selectionLookup: enabled }).catch(error => message(errorText(error), true)); });
-font.addEventListener('change', () => { void update({ minimumTranslationFontPx: Number(font.value) as 12 | 14 | 16 }).catch(error => message(errorText(error), true)); });
 element('clear-cache').addEventListener('click', () => {
   void chrome.runtime.sendMessage({ type: 'PR_CLEAR_CACHE' }).then(() => message('已清除翻译缓存。')).catch(error => message(errorText(error), true));
 });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes.settings?.newValue) return;
-  const previousSource = settings.sourceLanguage;
-  settings = sanitizeSettings(changes.settings.newValue); automatic.render(); renderRules(); setChoice('selection', settings.selectionLookup); font.value = String(settings.minimumTranslationFontPx); source.value = settings.sourceLanguage;
-  if (previousSource !== settings.sourceLanguage) void refreshEngine();
+  const previousSource = settings.sourceLanguages.join(',') + '>' + settings.targetLanguage;
+  settings = sanitizeSettings(changes.settings.newValue); automatic.render(); renderRules(); setChoice('selection', settings.selectionLookup); font.setValues([String(settings.minimumTranslationFontPx)]); source.setValues(settings.sourceLanguages); target.setValues([settings.targetLanguage]);
+  if (previousSource !== settings.sourceLanguages.join(',') + '>' + settings.targetLanguage) void refreshLanguages();
   void refreshPermissions();
 });
-window.addEventListener('pagehide', () => preparing?.abort());
+let languageEpoch = 0;
+async function refreshLanguages(): Promise<void> {
+  const epoch = ++languageEpoch; const snapshot = settings;
+  target.setValues([snapshot.targetLanguage]); await populateLanguages(source, snapshot.sourceLanguages, snapshot.targetLanguage);
+  if (epoch !== languageEpoch) return; await packs.setSources(snapshot.sourceLanguages, snapshot.targetLanguage);
+}
 void (async () => {
-  settings = await loadSettings(); automatic.render(); setChoice('selection', settings.selectionLookup); font.value = String(settings.minimumTranslationFontPx);
-  await populateLanguages(source, settings.sourceLanguage); renderRules(); await Promise.all([refreshEngine(), refreshPermissions()]);
+  settings = await loadSettings(); automatic.render(); setChoice('selection', settings.selectionLookup); font.setValues([String(settings.minimumTranslationFontPx)]);
+  renderRules(); await Promise.all([refreshLanguages(), refreshPermissions()]);
 })().catch(error => message(errorText(error), true));

@@ -7,13 +7,14 @@ await rm(path.join(root, 'dist'), { recursive: true, force: true });
 await mkdir(path.join(root, 'dist'), { recursive: true });
 await cp(path.join(root, 'src/manifest.json'), path.join(root, 'dist/manifest.json'));
 await cp(path.join(root, 'assets/icons'), path.join(root, 'dist/icons'), { recursive: true });
+await cp(path.join(root, 'src/providers/offscreen.html'), path.join(root, 'dist/offscreen.html'));
 for (const name of ['popup.html', 'options.html', 'ui.css']) {
   await cp(path.join(root, 'src/ui', name), path.join(root, 'dist', name));
 }
-const common = { bundle: true, target: 'chrome138', minify: false, sourcemap: false, logLevel: 'info' };
+const common = { loader: { '.png': 'binary' }, bundle: true, target: 'chrome138', minify: false, sourcemap: false, logLevel: 'info' };
 const builds = [
   { ...common, entryPoints: [path.join(root, 'src/content/index.ts')], outfile: path.join(root, 'dist/content.js'), format: 'iife' },
-  { ...common, entryPoints: { background: path.join(root, 'src/background/index.ts'), popup: path.join(root, 'src/ui/popup.ts'), options: path.join(root, 'src/ui/options.ts') }, outdir: path.join(root, 'dist'), format: 'esm', splitting: true },
+  { ...common, entryPoints: { offscreen: path.join(root, 'src/providers/offscreen.ts'), 'native-worker': path.join(root, 'src/providers/native-worker.ts'), background: path.join(root, 'src/background/index.ts'), popup: path.join(root, 'src/ui/popup.ts'), options: path.join(root, 'src/ui/options.ts') }, outdir: path.join(root, 'dist'), format: 'esm', splitting: true },
 ];
 if (process.argv.includes('--watch')) {
   for (const options of builds) { const c = await context(options); await c.watch(); }

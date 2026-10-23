@@ -1,5 +1,5 @@
-import type { LocalEngine } from '../providers/local';
-import { LANGUAGES, type Settings } from '../shared/settings';
+import type { DocumentEngine } from '../providers/pool';
+import { apiLanguage, languageLabel, LANGUAGES, type Settings, type SourceLanguage } from '../shared/settings';
 import { classify } from './language';
 import { SENSITIVE, sourceText } from './extractor';
 
@@ -16,7 +16,7 @@ export class SelectionLookup {
   private timer = 0;
   private root?: ShadowRoot;
   private sourceURL = '';
-  constructor(private engine: () => LocalEngine, private settings: () => Settings) {
+  constructor(private engine: () => DocumentEngine, private settings: () => Settings) {
     document.addEventListener('pointerup', event => {
       if (this.host && event.composedPath().includes(this.host)) return;
       clearTimeout(this.timer); this.timer = window.setTimeout(() => this.capture(), 80);
@@ -65,15 +65,15 @@ export class SelectionLookup {
     this.host.style.top = `${Math.max(12, rect.bottom + height + 12 <= innerHeight ? rect.bottom + 8 : rect.top - height - 8)}px`;
   }
 
-  private panel(): HTMLElement {
+  private panel(source: SourceLanguage): HTMLElement {
     const panel = document.createElement('section'); panel.className = 'panel'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', '词句查译'); panel.lang = 'zh-CN';
     const top = document.createElement('div'); top.className = 'top';
-    const title = document.createElement('span'); title.textContent = `${LANGUAGES.find(l => l.code === this.settings().sourceLanguage)?.label ?? ''} → 简体中文`;
+    const title = document.createElement('span'); title.textContent = `${LANGUAGES.find(l => l.code === source)?.label ?? ''} → ${languageLabel(this.settings().targetLanguage)}`;
     const close = document.createElement('button'); close.type = 'button'; close.className = 'close'; close.textContent = '×'; close.setAttribute('aria-label', '关闭查译'); close.addEventListener('click', () => this.close(true));
     top.append(title, close); panel.append(top);
-    const original = document.createElement('div'); original.className = 'source'; original.lang = this.settings().sourceLanguage; original.textContent = this.text; panel.append(original);
+    const original = document.createElement('div'); original.className = 'source'; original.lang = source; original.textContent = this.text; panel.append(original);
     const label = document.createElement('div'); label.className = 'label'; label.textContent = this.text.split(/\s+/u).length <= 3 ? '单词／短语直译' : '句子翻译'; panel.append(label);
-    const result = document.createElement('div'); result.className = 'result'; result.setAttribute('role', 'status'); result.textContent = '正在查译…'; panel.append(result);
+    const result = document.createElement('div'); result.className = 'result'; result.lang = this.settings().targetLanguage; result.setAttribute('role', 'status'); result.textContent = '正在查译…'; panel.append(result);
     const actions = document.createElement('div'); actions.className = 'actions'; panel.append(actions);
     const copy = (label: string, getText: () => string): void => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'copy'; button.textContent = label;
@@ -85,22 +85,33 @@ export class SelectionLookup {
     return panel;
   }
 
-  private async lookup(force = false): Promise<void> {
+  private async lookup(force?: SourceLanguage): Promise<void> {
     if (!this.root || !this.text || !this.selectionCurrent()) { this.close(); return; }
     this.abort?.abort(); this.abort = new AbortController();
-    const controller = this.abort, text = this.text, source = this.settings().sourceLanguage;
-    const panel = this.panel(), result = panel.querySelector<HTMLElement>('.result')!;
+    const controller = this.abort, text = this.text;
+    let source = force ?? this.settings().sourceLanguages[0]!;
+    const panel = this.panel(source), result = panel.querySelector<HTMLElement>('.result')!;
     try {
+      if (this.settings().sourceLanguages.every(language => language === this.settings().targetLanguage)) { result.textContent = '源语言和目标语言相同，无需翻译。'; return; }
       if (!force) {
         let evidence = classify(await this.engine().detect(text, controller.signal), source);
         if (evidence.result === 'unknown' && this.context) evidence = classify(await this.engine().detect(this.context, controller.signal), source);
-        if (evidence.result !== 'match') {
-          result.textContent = '无法确认所选文字是当前源语言。';
-          const confirm = document.createElement('button'); confirm.type = 'button'; confirm.textContent = `仍按${LANGUAGES.find(l => l.code === source)?.label}查译`;
-          confirm.addEventListener('click', () => { void this.lookup(true); }); result.append(document.createElement('br'), confirm); this.position(); return;
+        if (controller.signal.aborted || this.abort !== controller || !this.selectionCurrent()) return;
+        const detected = this.settings().sourceLanguages.find(language => apiLanguage(language) === evidence.language);
+        if (detected && detected !== this.settings().targetLanguage) {
+          source = detected;
+          panel.querySelector('.top span')!.textContent = `${LANGUAGES.find(l => l.code === source)?.label} → ${languageLabel(this.settings().targetLanguage)}`;
+          (panel.querySelector('.source') as HTMLElement).lang = source;
+        } else {
+          result.textContent = '无法确认所选文字属于已选源语言。';
+          for (const language of this.settings().sourceLanguages.filter(l => l !== this.settings().targetLanguage)) {
+            const confirm = document.createElement('button'); confirm.type = 'button'; confirm.textContent = `按${LANGUAGES.find(l => l.code === language)?.label}查译`;
+            confirm.addEventListener('click', () => { void this.lookup(language); }); result.append(document.createElement('br'), confirm);
+          }
+          this.position(); return;
         }
       }
-      const translated = await this.engine().translate(text, controller.signal);
+      const translated = await this.engine().translate(text, source, controller.signal);
       if (controller.signal.aborted || this.text !== text || this.abort !== controller) return;
       if (!this.selectionCurrent()) { this.close(); return; }
       this.translated = translated; result.textContent = translated;
@@ -108,7 +119,7 @@ export class SelectionLookup {
         const reference = document.createElement('button'); reference.className = 'copy'; reference.type = 'button'; reference.textContent = '查看原句参考';
         reference.addEventListener('click', () => {
           reference.disabled = true;
-          void this.engine().translate(this.context, controller.signal).then(value => {
+          void this.engine().translate(this.context, source, controller.signal).then(value => {
             if (controller.signal.aborted || this.abort !== controller) return;
             if (!this.selectionCurrent()) { this.close(); return; }
             const node = document.createElement('div'); node.className = 'context'; node.textContent = `原句参考\n${this.context}\n${value}`; reference.replaceWith(node); this.position();

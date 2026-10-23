@@ -15,7 +15,7 @@ const results = [];
 const errors = [];
 const networks = new Set();
 const server = http.createServer(async (req, res) => {
-  const routes = { '/': 'reader.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
+  const routes = { '/': 'reader.html', '/multilingual.html': 'multilingual.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
   const file = routes[new URL(req.url, 'http://localhost').pathname];
   if (!file) { res.writeHead(404); res.end(); return; }
   const body = await readFile(path.join(rootDir, 'tests/fixtures', file));
@@ -73,7 +73,11 @@ async function actionPopup(page, extensionId) {
     if (attempt === 99) throw new Error('Popup settings did not initialize');
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  return { evaluate, command, close: () => cdp.send('Target.closeTarget', { targetId: target.targetId }) };
+  const waitFor = async expression => {
+    const deadline = Date.now() + 10000;
+    while (!await evaluate(expression)) { if (Date.now() >= deadline) throw new Error('Popup state did not settle'); await new Promise(resolve => setTimeout(resolve, 50)); }
+  };
+  return { evaluate, command, waitFor, close: () => cdp.send('Target.closeTarget', { targetId: target.targetId }) };
 }
 
 try {
@@ -90,10 +94,10 @@ try {
   manifest.optional_host_permissions = [];
   await writeFile(path.join(extensionPath, 'manifest.json'), JSON.stringify(manifest, null, 2));
   for (const extension of (await cdp.send('Extensions.getExtensions')).extensions) {
-    if (['Parallel Read · 对照读', '伴读 · Readside'].includes(extension.name)) await cdp.send('Extensions.uninstall', { id: extension.id });
+    if (['Parallel Read · 对照读', '伴读 · Readside', 'Readside'].includes(extension.name)) await cdp.send('Extensions.uninstall', { id: extension.id });
   }
   const { id } = await cdp.send('Extensions.loadUnpacked', { path: extensionPath });
-  const options = await context.newPage();
+  let options = await context.newPage();
   options.on('pageerror', error => errors.push(error.message));
   options.on('request', request => networks.add(request.url()));
   await options.goto(`chrome-extension://${id}/options.html`);
@@ -269,7 +273,8 @@ try {
     await options.locator('#auto-on').check();
     await options.waitForFunction(async()=>(await chrome.storage.local.get('settings')).settings.autoTranslate);
     const workerSession=await context.newCDPSession(options);await workerSession.send('ServiceWorker.enable');await workerSession.send('ServiceWorker.stopAllWorkers');
-    await options.locator('#font-size').selectOption('14');
+    await options.getByRole('combobox', { name: '译文最小字号' }).click();
+    await options.getByRole('option', { name: '14 px', exact: true }).click();
     const second=await context.newPage();await second.goto('http://127.0.0.1:9329/');
     await second.waitForSelector('#hero > [data-pr-owned]',{timeout:30000});
     assert.equal(await options.evaluate(async()=>(await chrome.storage.local.get('settings')).settings.minimumTranslationFontPx),14);
@@ -305,7 +310,7 @@ try {
   await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslateAllPages === true);
   const popup = await actionPopup(page, id);
   await check('Actual extension action popup addresses the active page', async () => {
-    assert.match(await popup.evaluate('document.title'), /伴读/);
+    assert.equal(await popup.evaluate('document.title'), 'Readside');
     assert.equal(await popup.evaluate('document.querySelector("#auto-on").checked'), true);
   });
   await check('Actual popup restore removes current-page translations', async () => {
@@ -317,11 +322,13 @@ try {
     await page.waitForSelector('#hero > [data-pr-owned]', { timeout: 30000 });
   });
   await check('Actual popup switch stops and persists automatic translation', async () => {
+    await popup.waitFor('!document.querySelector("#auto-off").matches(":disabled")');
     await popup.evaluate('document.querySelector("#auto-off").click()');
     await page.waitForFunction(() => document.querySelectorAll('[data-pr-owned="translation"]').length === 0);
     await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslate === false);
   });
   await check('Actual popup switch resumes automatic translation', async () => {
+    await popup.waitFor('!document.querySelector("#auto-on").matches(":disabled")');
     await popup.evaluate('document.querySelector("#auto-on").click()');
     await page.waitForSelector('#hero > [data-pr-owned]', { timeout: 30000 });
     await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslate === true);
@@ -329,6 +336,100 @@ try {
   const screenshot = await popup.command('Page.captureScreenshot', { format: 'png' });
   await writeFile(path.join(evidenceDir, 'popup.png'), Buffer.from(screenshot.data, 'base64'));
   await popup.close();
+  await options.bringToFront();
+  await check('Readside branding and custom controls have no native select', async () => {
+    assert.equal(await options.locator('.brand').innerText(), 'Readside');
+    assert.equal(await options.locator('.page-label, select').count(), 0);
+    assert.equal(await options.locator('#auto-on').evaluate(node => getComputedStyle(node).appearance), 'none');
+    const trigger = options.getByRole('combobox', { name: '源语言', exact: true });
+    await trigger.click(); assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+    assert.equal(await options.getByRole('option', { name: /^英语/ }).getAttribute('aria-disabled'), 'true');
+    await options.keyboard.press('Enter'); // Last source cannot be removed.
+    assert.deepEqual(await options.evaluate(async () => (await chrome.storage.local.get('settings')).settings.sourceLanguages), ['en']);
+    await options.keyboard.press('Escape'); assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+  });
+  await check('Multi-select persists all six sources and displays independent model cards', async () => {
+    await options.getByRole('combobox', { name: '源语言', exact: true }).click();
+    for (const label of ['法语', '西班牙语', '德语', '日语', '韩语']) {
+      await options.getByRole('option', { name: new RegExp('^' + label) }).click();
+      await options.waitForTimeout(80);
+    }
+    await options.keyboard.press('Escape');
+    await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.sourceLanguages.length === 6);
+    assert.equal(await options.locator('.pack-card:not(.detector-card)').count(), 6);
+    for (const label of ['英语','法语','西班牙语','德语','日语','韩语']) {
+      const button = options.getByRole('button', { name: `下载${label}语言包`, exact: true }); if (await button.count()) await button.click();
+    }
+    await options.waitForFunction(() => document.querySelectorAll('.pack-status[data-state=ready]').length === 6, {}, { timeout: 60000 });
+    await options.screenshot({ path: path.join(evidenceDir, 'settings-multilingual.png'), fullPage: true });
+  });
+  await check('All six detected source languages translate automatically with real local models', async () => {
+    const multilingual = await context.newPage(); await multilingual.goto('http://127.0.0.1:9329/multilingual.html');
+    for (const code of ['en','fr','es','de','ja','ko']) {
+      await multilingual.locator(`#${code}`).scrollIntoViewIfNeeded();
+      await multilingual.waitForSelector(`#${code} > [data-pr-owned="translation"]`, { timeout: 30000 });
+      const original = await multilingual.locator(`#${code}`).evaluate(node => node.firstChild.textContent);
+      const translation = await multilingual.locator(`#${code} > [data-pr-owned]`).innerText();
+      assert.match(translation, /\p{Script=Han}/u); assert.notEqual(translation, original);
+    }
+    assert.equal(await multilingual.locator('#zh > [data-pr-owned]').count(), 0);
+    await multilingual.locator('#mixed-sources').scrollIntoViewIfNeeded();
+    await multilingual.waitForSelector('#mixed-sources > [data-pr-owned]', { timeout: 30000 });
+    assert.ok((await multilingual.locator('#mixed-sources > [data-pr-owned]').innerText()).split('\n').length >= 2);
+    await multilingual.screenshot({ path: path.join(evidenceDir, 'multilingual-reader.png'), fullPage: true });
+  });
+  await check('Prepared models work at an unseen HTTPS origin after the settings page closes', async () => {
+    const url = options.url(); await options.close();
+    const fresh = await context.newPage();
+    await fresh.route('https://readside-fresh.test/**', async route => {
+      const css = route.request().url().endsWith('.css');
+      await route.fulfill({ status: 200, contentType: css ? 'text/css' : 'text/html', headers: { 'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'none'" }, body: await readFile(path.join(rootDir, 'tests/fixtures', css ? 'fixture.css' : 'multilingual.html'), 'utf8') });
+    });
+    await fresh.goto('https://readside-fresh.test/');
+    for (const code of ['en','fr','es','de','ja','ko']) { await fresh.locator(`#${code}`).scrollIntoViewIfNeeded(); await fresh.waitForSelector(`#${code} > [data-pr-owned]`, { timeout: 30000 }); }
+    await fresh.close(); options = await context.newPage(); await options.goto(url); await options.waitForSelector('.pack-card');
+  });
+  await check('Custom font dropdown supports keyboard selection and persists', async () => {
+    const trigger = options.getByRole('combobox', { name: '译文最小字号', exact: true });
+    await options.bringToFront(); await trigger.focus(); await options.keyboard.press('Enter');
+    await options.keyboard.press('End'); await options.keyboard.press('Enter');
+    await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.minimumTranslationFontPx === 16);
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+  });
+  await check('Chinese is selectable as a source and packages use a compact two-column grid', async () => {
+    await options.getByRole('combobox', { name: '源语言', exact: true }).click();
+    await options.getByRole('option', { name: /^简体中文/ }).click(); await options.keyboard.press('Escape');
+    await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.sourceLanguages.includes('zh-CN'));
+    assert.match(await options.locator('[data-language="zh-CN"]').innerText(), /无需翻译/);
+    const cards = await options.locator('.pack-card:not(.detector-card)').evaluateAll(nodes => nodes.map(n => ({ y: n.getBoundingClientRect().y, height: n.getBoundingClientRect().height })));
+    assert.equal(cards.length, 7); assert.ok(Math.abs(cards[0].y - cards[1].y) < 1); assert.ok(cards.every(card => card.height < 85));
+  });
+  for (const [targetCode, targetLabel, sourceId, script] of [['en','英语','zh',/\p{Script=Latin}/u], ['ja','日语','en',/[\p{Script=Hiragana}\p{Script=Katakana}]/u], ['fr','法语','zh',/\p{Script=Latin}/u]]) {
+    await check(`Real target-language switch to ${targetCode} preserves originals and updates translation language`, async () => {
+      await options.bringToFront(); await options.getByRole('combobox', { name: '目标语言', exact: true }).click();
+      await options.getByRole('option', { name: targetLabel, exact: true }).click();
+      await options.waitForFunction(async code => (await chrome.storage.local.get('settings')).settings.targetLanguage === code, targetCode);
+      // The UI may require a first create at this extension origin even for cached models.
+      for (const source of ['英语','简体中文']) {
+        const button = options.getByRole('button', { name: `下载${source}语言包`, exact: true }); if (await button.count() && await button.isEnabled()) await button.click();
+      }
+      const targetPage = await context.newPage(); await targetPage.goto('http://127.0.0.1:9329/multilingual.html'); await targetPage.bringToFront();
+      await targetPage.locator(`#${sourceId}`).scrollIntoViewIfNeeded();
+      const deadline = Date.now() + 60000;
+      while (!await targetPage.locator(`#${sourceId} > [data-pr-owned]`).count() && Date.now() < deadline) {
+        await targetPage.locator(`#${sourceId}`).scrollIntoViewIfNeeded(); await targetPage.waitForTimeout(300);
+      }
+      assert.equal(await targetPage.locator(`#${sourceId} > [data-pr-owned]`).count(), 1);
+      const result = targetPage.locator(`#${sourceId} > [data-pr-owned]`); assert.match(await result.innerText(), script);
+      assert.equal(await result.getAttribute('lang'), targetCode);
+      const sameId = targetCode === 'zh-CN' ? 'zh' : targetCode;
+      assert.equal(await targetPage.locator(`#${sameId} > [data-pr-owned]`).count(), 0);
+      await targetPage.close();
+    });
+  }
+  await options.bringToFront(); await options.getByRole('combobox', { name: '目标语言', exact: true }).click();
+  await options.getByRole('option', { name: '简体中文', exact: true }).click();
+  await options.screenshot({ path: path.join(evidenceDir, 'settings-multilingual.png'), fullPage: true });
   assert.deepEqual(errors,[]);
   await writeFile(path.join(evidenceDir,'network.json'), JSON.stringify([...networks],null,2));
   console.log(`${results.length} browser checks passed. Evidence: .private/browser-evidence/`);

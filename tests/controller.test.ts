@@ -3,14 +3,20 @@ import { DEFAULT_SETTINGS } from '../src/shared/settings';
 import { isExtensionUI } from '../src/shared/sender';
 
 const deferred = vi.hoisted(() => new Map<string, (text: string) => void>());
-vi.mock('../src/providers/local', async importOriginal => ({
-  ...await importOriginal<typeof import('../src/providers/local')>(),
+const models = vi.hoisted(() => ({ frenchReady: false }));
+vi.mock('../src/providers/local', async importOriginal => {
+  const original = await importOriginal<typeof import('../src/providers/local')>();
+  return { ...original,
   LocalEngine: class {
-    async detect() { return [{ detectedLanguage: 'en', confidence: .99 }]; }
-    translate(text: string) { return new Promise<string>(resolve => deferred.set(text, resolve)); }
+    constructor(private source: string) {}
+    async detect(text: string) { return [{ detectedLanguage: text.startsWith('Nous') ? 'fr' : 'en', confidence: .99 }]; }
+    translate(text: string) {
+      if (this.source === 'fr') return models.frenchReady ? Promise.resolve('法语内容的中文译文') : Promise.reject(new original.EngineError('needs_download'));
+      return new Promise<string>(resolve => deferred.set(text, resolve));
+    }
     clearCache() {} dispose() {}
   },
-}));
+}; });
 vi.mock('../src/content/renderer', () => ({
   layoutFingerprint: () => 'stable', safeContainer: () => true, layoutFits: () => true, styleTranslation: () => {},
   renderTranslation: (source: HTMLElement, text: string) => { const node = document.createElement('span'); node.dataset.prOwned = 'translation'; node.textContent = text; source.append(node); return node; },
@@ -22,7 +28,7 @@ const updated = 'This is a completely different article describing the latest up
 let controller: Controller;
 
 beforeEach(() => {
-  deferred.clear();
+  deferred.clear(); models.frenchReady = false;
   vi.stubGlobal('isSecureContext', true);
   vi.stubGlobal('innerHeight', 1000); vi.stubGlobal('innerWidth', 1200);
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
@@ -77,5 +83,20 @@ describe('settings sender authorization', () => {
     expect(isExtensionUI({ id: 'reader', url: 'https://example.com/options.html' }, 'reader')).toBe(false);
     expect(isExtensionUI({ id: 'other', url: 'chrome-extension://reader/options.html' }, 'reader')).toBe(false);
     expect(isExtensionUI({ id: 'reader', url: 'chrome-extension://reader/unknown.html' }, 'reader')).toBe(false);
+  });
+});
+
+describe('independent language packages', () => {
+  it('keeps translating ready languages and retries a missing language without resuming a restored page', async () => {
+    document.body.innerHTML = `<p>Nous voulons découvrir de nouvelles idées avec les personnes qui nous entourent.</p><p>${original}</p>`;
+    controller.apply({ ...DEFAULT_SETTINGS, sourceLanguages: ['en','fr'], autoTranslate: true, autoTranslateAllPages: true, settingsVersion: 3 }, true);
+    await vi.waitFor(() => expect(deferred.has(original)).toBe(true)); deferred.get(original)!('英语内容的中文译文');
+    await vi.waitFor(() => expect(controller.status().state).toBe('partial'));
+    expect(controller.status().translated).toBe(1); expect(controller.status().missingLanguages).toEqual(['fr']);
+    models.frenchReady = true; controller.retry();
+    await vi.waitFor(() => expect(controller.status().translated).toBe(2));
+    expect(controller.status().missingLanguages).toBeUndefined();
+    controller.restore(); controller.retry();
+    expect(controller.status().state).toBe('paused'); expect(document.querySelector('[data-pr-owned]')).toBeNull();
   });
 });

@@ -1,15 +1,16 @@
-import { DEFAULT_SETTINGS, settingsChangeRequiresReset, shouldAutoTranslate, type Settings } from '../shared/settings';
+import { apiLanguage, DEFAULT_SETTINGS, settingsChangeRequiresReset, shouldAutoTranslate, type Settings } from '../shared/settings';
 import { EMPTY_STATUS, type PageStatus } from '../shared/messages';
-import { EngineError, LocalEngine } from '../providers/local';
+import { EngineError } from '../providers/local';
+import { DocumentEngine } from '../providers/pool';
 import { candidates, contextFor, entryKey, excludedFromTranslation, nearViewport, OWNED, sourceLanguageHint, sourceText } from './extractor';
-import { sentences, translatableSegments } from './language';
+import { sentences, selectedSegments } from './language';
 import { layoutFingerprint, layoutFits, renderTranslation, safeContainer, styleTranslation } from './renderer';
 import { SelectionLookup } from './selection';
 
 interface Block {
   element: HTMLElement; text: string; entry: string; revision: number; hint?: string;
   state: 'discovered' | 'queued' | 'translating' | 'rendered' | 'skipped' | 'failed';
-  translation?: HTMLElement; attempts: number;
+  translation?: HTMLElement; attempts: number; incomplete?: boolean;
   skipReason?: 'language' | 'layout'; layoutFingerprint?: string; layoutTargets?: Element[];
 }
 
@@ -32,8 +33,9 @@ export class Controller {
   private scanning = false;
   private pumping = new Set<number>();
   private route = location.pathname + location.search;
-  private engine = new LocalEngine('en');
+  private engine = new DocumentEngine(this.settings.targetLanguage);
   private engineError?: string;
+  private missingLanguages = new Set<string>();
   private contextAlive = true;
   private lookup = new SelectionLookup(() => this.engine, () => this.settings);
   private observer = new MutationObserver(records => {
@@ -94,8 +96,8 @@ export class Controller {
   }
   restore(): PageStatus { this.paused = true; this.manual = false; this.stop(); return this.status(); }
   retry(): PageStatus {
-    this.engineError = undefined;
-    for (const block of this.blocks.values()) if (block.state === 'failed') { block.state = 'discovered'; block.attempts = 0; }
+    this.engineError = undefined; this.missingLanguages.clear();
+    for (const block of this.blocks.values()) if (block.state === 'failed' || block.incomplete) { block.translation?.remove(); block.translation = undefined; block.incomplete = false; block.state = 'discovered'; block.attempts = 0; }
     if (this.wantsRun()) this.start();
     return this.status();
   }
@@ -119,8 +121,8 @@ export class Controller {
     this.roots.clear();
     for (const block of this.blocks.values()) block.translation?.remove();
     this.blocks.clear(); this.lookup.close();
-    this.engine.dispose(); this.engine = new LocalEngine(this.settings.sourceLanguage);
-    this.engineError = undefined; this.report();
+    this.engine.dispose(); this.engine = new DocumentEngine(this.settings.targetLanguage);
+    this.engineError = undefined; this.missingLanguages.clear(); this.report();
   }
 
   private checkRoute(): void {
@@ -194,16 +196,25 @@ export class Controller {
         block.state = 'translating'; this.report();
         try {
           const hint = sourceLanguageHint(block.element);
-          if (hint && hint !== this.settings.sourceLanguage) { block.state = 'skipped'; block.skipReason = 'language'; continue; }
+          if (hint && !this.settings.sourceLanguages.some(source => apiLanguage(source) === hint)) { block.state = 'skipped'; block.skipReason = 'language'; continue; }
           if (!safeContainer(block.element)) { this.waitForLayout(block); continue; }
-          const segments = await translatableSegments(block.text, this.settings.sourceLanguage, engine, signal, contextFor(block.element));
+          const segments = await selectedSegments(block.text, this.settings.sourceLanguages.filter(source => source !== this.settings.targetLanguage), engine, signal, contextFor(block.element));
           if (!this.current(block, generation, revision)) continue;
           if (!segments.length) { block.state = 'skipped'; block.skipReason = 'language'; continue; }
-          const translated: string[] = [];
-          for (const sentence of segments) {
-            const chunks = sentence.length <= 1800 ? [sentence] : sentences(sentence, this.settings.sourceLanguage).flatMap(s => s.match(/[\s\S]{1,800}/gu) ?? []);
-            for (const chunk of chunks) translated.push(await engine.translate(chunk, signal));
+          const translated: string[] = []; block.incomplete = false;
+          for (const segment of segments) {
+            if (this.missingLanguages.has(segment.source)) { block.incomplete = true; continue; }
+            const chunks = segment.text.length <= 1800 ? [segment.text] : sentences(segment.text, segment.source).flatMap(s => s.match(/[\s\S]{1,800}/gu) ?? []);
+            try {
+              for (const chunk of chunks) translated.push(await engine.translate(chunk, segment.source, signal));
+            } catch (error) {
+              if (!this.current(block, generation, revision)) throw error;
+              if (error instanceof EngineError && ['needs_download', 'unsupported_pair', 'activation_required'].includes(error.code)) {
+                this.missingLanguages.add(segment.source); block.incomplete = true;
+              } else throw error;
+            }
           }
+          if (!translated.length && block.incomplete) { block.state = 'failed'; continue; }
           if (!this.current(block, generation, revision)) continue;
           block.translation = renderTranslation(block.element, translated.join('\n'), this.settings) ?? undefined;
           if (block.translation) { this.unwatchLayout(block); block.state = 'rendered'; block.skipReason = undefined; }
@@ -264,12 +275,13 @@ export class Controller {
   status(): PageStatus {
     const result = { ...EMPTY_STATUS };
     for (const block of this.blocks.values()) {
-      if (block.state === 'rendered' && block.translation?.isConnected) result.translated++;
+      if (block.state === 'rendered' && block.translation?.isConnected) { result.translated++; if (block.incomplete) result.failed++; }
       else if (block.state === 'skipped') result.skipped++;
       else if (block.state === 'failed') result.failed++;
       else if (['queued', 'translating'].includes(block.state)) result.pending++;
     }
     result.state = this.paused ? 'paused' : !isSecureContext ? 'unsupported' : this.engineError === 'needs_download' ? 'needs-download' : this.engineError ? 'unsupported' : !this.running ? 'off' : result.pending || this.scanning || this.scanTimer ? 'working' : result.failed ? 'partial' : 'ready';
+    if (this.missingLanguages.size) result.missingLanguages = [...this.missingLanguages];
     if (this.engineError) result.error = this.engineError;
     return result;
   }

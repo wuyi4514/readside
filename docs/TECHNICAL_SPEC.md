@@ -1,6 +1,6 @@
 # 技术规格
 
-实现版本：`0.1.1-preview.2` · 日期：2026-10-23。
+实现版本：`0.2.0-preview.3` · 日期：2026-10-23。
 
 本文记录当前开发预览的实现。正式首版目标见[产品规格](../SPEC.md)，测试结果见[验证报告](VALIDATION.md)；性能预算和未执行的验收不视为已达成。
 
@@ -8,11 +8,11 @@
 
 TypeScript、Manifest V3、esbuild；原生 HTML/CSS 构建轻量 Popup / Options，Vitest 检查策略与生命周期，Playwright 连接独立真实 Chrome 检查翻译。依赖版本锁定在 `package-lock.json`，发布包没有 npm 运行时依赖。
 
-Options 页面在真实按钮手势内调用 Translator / LanguageDetector 准备模型、显示实际进度并自检。模型准备后，各网页的 **isolated content script** 在自身 Window 中检测、翻译和渲染，不需要保持 Popup / Options 开启。后台 worker 只管理设置、权限和动态脚本注册。
+Options 页面在真实按钮手势内调用 Translator / LanguageDetector 准备模型、显示实际进度并自检。模型准备后，各网页的 **isolated content script** 提取、筛选与渲染；纯文本片段通过受信内部 RPC 送至扩展来源的 offscreen Window，调用已准备的本地模型。offscreen 内实际创建专用 Worker，限制与串行调度队列、取消旧工作。无需保持 Popup / Options 开启。后台 worker 管理设置、权限、脚本注册与受信 RPC 路由。
 
 M0 已验证新 HTTPS origin 无手势运行、关闭准备页后运行、严格 CSP，以及重启后模型复用。CDP 调试加载的扩展重启后需要工具重新加载，因此普通 UI 安装持久性仍需单独验收。详见[引擎验证](ENGINE_SPIKE.md)。
 
-无需 offscreen、主世界注入、常驻窗口、云服务或共享 Key。API 基线 Chrome 138，当前真实验证 Chrome 155 / macOS；每次运行探测设备、语言方向和模型状态。[官方能力矩阵](https://developer.chrome.com/docs/ai/built-in-apis)
+为解决新网页上多语言首次 create 的用户激活限制，使用 offscreen（WORKERS 原因，确实运行队列 Worker）。不注入主世界，不创建可见常驻窗口，不使用云服务或共享 Key。API 基线 Chrome 138，当前真实验证 Chrome 155 / macOS；每次运行探测设备、语言方向和模型状态。[官方能力矩阵](https://developer.chrome.com/docs/ai/built-in-apis)
 
 ## 2. 模块
 
@@ -32,11 +32,11 @@ M0 已验证新 HTTPS origin 无手势运行、关闭准备页后运行、严格
 
 ## 3. 权限与消息
 
-必需 `storage`、`scripting`、`activeTab`。可选 `https://*/*` 与安全开发地址 `http://localhost/*`、`http://127.0.0.1/*`；不为普通 HTTP 请求全网权限。不申请 offscreen、tabs、history、cookies、webRequest 或剪贴板读取。
+必需 `storage`、`scripting`、`activeTab`、`offscreen`。可选 `https://*/*` 与安全开发地址 `http://localhost/*`、`http://127.0.0.1/*`；不为普通 HTTP 请求全网权限。不申请 tabs、history、cookies、webRequest 或剪贴板读取。
 
 网站授权可为全部 HTTPS 或当前主机，持久动态 content script 仅注册已获权限范围，设置与权限变化时对账。临时 activeTab 用于点击插件后的当前页主动操作，不等同于自动运行权限。[权限](https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions)、[动态脚本](https://developer.chrome.com/docs/extensions/reference/api/scripting)
 
-只有本扩展的 Popup / Options 可更新设置；消息校验扩展身份和精确页面来源。正文翻译在文档内部执行，不提供网页可调用的翻译／联网代理。不开放 externally_connectable、postMessage 桥或任意联网地址；扩展页面 CSP 声明 `connect-src 'none'`。
+只有本扩展的 Popup / Options 可更新设置；消息校验扩展身份和精确页面来源。正文只经扩展内部消息传到本机 offscreen；原网页没有可调用的翻译／联网代理。native RPC 限制扩展身份、顶层 documentId、合法页面来源、操作白名单、语言和每次4000字符。offscreen Port 仅接受精确的本扩展 offscreen.html 来源。不开放 externally_connectable、postMessage 桥或任意联网地址；扩展页面 CSP 声明 `connect-src 'none'`。
 
 设置写入串行化并递增版本；`storage.local` 限制为受信上下文，content script 经后台读取设置。权限撤销、总关闭或失效上下文停止运行；无法再访问的旧页面显示需要刷新清理。
 
@@ -62,7 +62,7 @@ MutationObserver 批处理相关变更，忽略插件自身写入；Intersection
 
 ## 6. 语言和本地模型
 
-源语言 en／fr／es／de／ja／ko，目标仅 zh-CN。Chrome provider 映射为目标 `zh`，英中方向已有简体中文实测，其他方向按当前设备 availability 启用，不冒充已完成逐方向质量验收。
+源语言可多选 en／fr／es／de／ja／ko／zh-CN，目标从相同集合单选。简体中文映射为 `zh`。每个源→目标独立建会话，目标相同的来源直接跳过；实际检查与质量验证范围见 VALIDATION.md。
 
 LanguageDetector 输出候选和置信度，分类为 match／non_match／unknown：
 
@@ -74,13 +74,13 @@ LanguageDetector 输出候选和置信度，分类为 match／non_match／unknow
 
 这些阈值尚未完成独立语料校准，不是准确率保证。主动查译无法确认语言时由用户点击确认继续。[Language Detector](https://developer.chrome.com/docs/ai/language-detection)
 
-`LocalEngine` 每文档、每方向复用 Translator / LanguageDetector 会话；自动阅读仅在模型 available 时创建，不在网页偷偷触发下载。请求合并外部取消、引擎生命周期和 15 秒执行超时，结果只接受有界纯文本，使用 textContent 写入。
+`LocalEngine` 保留每文档、每方向缓存和取消合同；`DocumentEngine` 共享一次检测、按句路由到所选源语言。native API 通过本机 RPC 连接 offscreen，同一运行代次有独立 client ID，会话由 documentId 与 client ID 隔离。模型只有设置页的真实点击可下载，offscreen 无用户激活，缺包时返回明确错误。请求合并外部取消、引擎生命周期和 15 秒执行超时，结果只接受有界纯文本，使用 textContent 写入。
 
-每次 translate 与具体块闭包绑定，不跨上下文传递正文，也没有远程 segment ID 协议。较长块按句和字符预算拆分后回到原块展示。准备缺包／不支持时停止自动重试并提供设置入口；普通块临时失败最多重试一次。浏览器模型本身的翻译质量仍需人读验收。[Translator](https://developer.chrome.com/docs/ai/translator-api)
+每次 translate 与具体块闭包绑定，以受限纯文本片段在本扩展上下文间传递，不出本机，也没有远程 segment ID 协议。较长块按句和字符预算拆分后回到原块展示。单个源语言缺包时标记该方向并继续处理其他就绪方向；准备完成广播重试但不解除当前页手动暂停；普通块临时失败最多重试一次。浏览器模型本身的翻译质量仍需人读验收。[Translator](https://developer.chrome.com/docs/ai/translator-api)
 
 ## 7. 排版与学习浮层
 
-在合法文本容器内追加自有 span，不替换、移动或包裹原文，不新增链接或可聚焦元素。整卡链接内的译文设 aria-hidden，保留该链接原有可访问名称。普通译文标注 zh-CN，不使用 aria-live。
+在合法文本容器内追加自有 span，不替换、移动或包裹原文，不新增链接或可聚焦元素。整卡链接内的译文设 aria-hidden，保留该链接原有可访问名称。普通译文标注所选目标语言，不使用 aria-live。
 
 正文字号为原文的85%，最小12／14／16 px 可选；标题和原字号≥24px的展示／引用文字译文上限18px，且常规字重；实色次级文字、无底色边框、5px 间距、1.6 行高。对可解析的纯色祖先背景计算4.5:1目标对比度；背景图片、渐变、复杂透明叠加和高级色彩空间仍需加强验证。
 
@@ -92,7 +92,7 @@ LanguageDetector 输出候选和置信度，分类为 match／non_match／unknow
 
 自动开关与所有网站范围分别持久化；关闭所有网站范围时仅 always 记录可自动处理，先保存范围再请求撤销宽泛权限。原生授权失败回滚 UI 单选状态，不保存已获得访问的假象。总关闭优先于网站 always，网站 never 禁止自动处理，当前页恢复在本 document 内暂停；主动“翻译当前页”可覆盖暂停／网站自动禁用，但不改持久规则。规则按 origin 精确匹配，不扩展到子域。未知存储 schema 保守关闭自动翻译。
 
-设置保存本机。正文／译文仅当前文档内存，不跨站共享，不写磁盘或日志。翻译 LRU 上限1,000项或5MiB，检测缓存单独上限1MiB，关闭释放会话和缓存；可主动清除。
+设置保存本机。正文／译文仅当前文档内存，缓存不跨站共享，不写磁盘或日志；offscreen Worker 队列上限512项，结果返回后丢弃正文，导航与标签页关闭释放相关会话。翻译 LRU 上限1,000项或5MiB，检测缓存单独上限1MiB，关闭释放会话和缓存；可主动清除。
 
 worker 不承载正文任务，终止后设置读取／写入可唤醒恢复。正文缓存可丢，开关设置不可丢；不依赖无业务意义的 ping 保持 worker 常驻。[worker 生命周期](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
 
@@ -109,3 +109,11 @@ worker 不承载正文任务，终止后设置读取／写入可唤醒恢复。�
 | 布局 | 无新增横向滚动、遮挡和失效控件 |
 
 构建脚本固定依赖版本，打包仅收集 dist、安装说明、隐私说明和 MIT。ZIP 根目录直接有 manifest，附 SHA-256。GitHub CI 执行 npm ci、类型检查、单测、构建和打包；真实模型回归在独立桌面 Chrome 执行。原始用户附件、个人 Chrome 配置、私有证据和本地规划不会发布。
+
+## 10. 产品控件与下载
+
+源语言复选 listbox、目标／字号单选 listbox 均使用共享 ProductSelect，支持上下键、Home／End、Enter／Space、Esc 和点击外部关闭；Popover 避开卡片裁切。radio 保留原生语义，采用统一外观。品牌只显示 Readside。
+
+语言包两列布局，每项独立下载／取消／重试，SVG 圆环直接绑定 downloadprogress.loaded（0..1），不模拟增长；未收到事件时为无百分比的准备状态。共用检测包单独显示，完成后折叠；同源目标显示无需翻译。目标变更取消旧方向，旧进度与完成回调无法写入新方向。
+
+工具栏采用静态工作环和每页状态 tooltip，移除文字徽标；按 Chrome action 官方说明不逐帧动画 setIcon。弹窗内使用轻量旋转环并尊重 reduced motion。[action](https://developer.chrome.com/docs/extensions/reference/api/action)、[offscreen](https://developer.chrome.com/docs/extensions/reference/api/offscreen)

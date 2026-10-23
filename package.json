@@ -1,6 +1,6 @@
 {
   "name": "readside",
-  "version": "0.1.1-preview.2",
+  "version": "0.2.0-preview.3",
   "private": true,
   "description": "Bilingual webpage reading with original text and translation",
   "license": "MIT",

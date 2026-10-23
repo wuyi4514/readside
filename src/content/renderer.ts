@@ -72,7 +72,7 @@ export function layoutFingerprint(source: HTMLElement): string {
 export function renderTranslation(source: HTMLElement, text: string, settings: Settings): HTMLElement | null {
   if (!safeContainer(source)) return null;
   const translation = document.createElement('span');
-  translation.dataset.prOwned = 'translation'; translation.lang = 'zh-CN'; translation.translate = false;
+  translation.dataset.prOwned = 'translation'; translation.lang = settings.targetLanguage; translation.translate = false;
   // Keep an existing whole-card link's accessible name identical to its original.
   if (source.closest('a,[role="link"]')) translation.setAttribute('aria-hidden', 'true');
   translation.textContent = text; styleTranslation(translation, source, settings);

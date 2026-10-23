@@ -8,6 +8,7 @@ export interface PageStatus {
   failed: number;
   pending: number;
   error?: string;
+  missingLanguages?: string[];
 }
 export const EMPTY_STATUS: PageStatus = { state: 'off', translated: 0, skipped: 0, failed: 0, pending: 0 };
 export type Message =
@@ -19,7 +20,9 @@ export type Message =
   | { type: 'PR_TRANSLATE' }
   | { type: 'PR_RESTORE' }
   | { type: 'PR_RETRY' }
-  | { type: 'PR_CLEAR_CACHE' };
+  | { type: 'PR_CLEAR_CACHE' }
+  | { type: 'PR_MODELS_READY' }
+  | { type: 'PR_NATIVE' | 'PR_NATIVE_CANCEL'; request: string; client: string; op?: string; source?: string; target?: string; text?: string };
 
 export async function loadSettings(): Promise<Settings> {
   const response = await chrome.runtime.sendMessage({ type: 'PR_GET_SETTINGS' } satisfies Message);

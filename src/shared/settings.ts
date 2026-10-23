@@ -5,17 +5,21 @@ export const LANGUAGES = [
   { code: 'de', label: '德语', native: 'Deutsch' },
   { code: 'ja', label: '日语', native: '日本語' },
   { code: 'ko', label: '韩语', native: '한국어' },
+  { code: 'zh-CN', label: '简体中文', native: '简体中文' },
 ] as const;
 
 export type SourceLanguage = (typeof LANGUAGES)[number]['code'];
+export type TargetLanguage = SourceLanguage;
+export const apiLanguage = (language: string): string => language === 'zh-CN' ? 'zh' : language;
+export const languageLabel = (language: string): string => LANGUAGES.find(l => l.code === language)?.label ?? language;
 export type SiteRule = 'follow-global' | 'always' | 'never';
 export interface Settings {
-  schemaVersion: 1;
+  schemaVersion: 2;
   settingsVersion: number;
   autoTranslate: boolean;
   autoTranslateAllPages: boolean;
-  sourceLanguage: SourceLanguage;
-  targetLanguage: 'zh-CN';
+  sourceLanguages: SourceLanguage[];
+  targetLanguage: TargetLanguage;
   provider: 'chrome-local';
   selectionLookup: boolean;
   translationScale: number;
@@ -24,9 +28,9 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
-  schemaVersion: 1, settingsVersion: 1, autoTranslate: false,
+  schemaVersion: 2, settingsVersion: 1, autoTranslate: false,
   autoTranslateAllPages: false,
-  sourceLanguage: 'en', targetLanguage: 'zh-CN', provider: 'chrome-local',
+  sourceLanguages: ['en'] as SourceLanguage[], targetLanguage: 'zh-CN', provider: 'chrome-local',
   selectionLookup: true, translationScale: 0.85, minimumTranslationFontPx: 12,
   siteRules: {},
 });
@@ -49,13 +53,16 @@ export function sanitizeSettings(value: unknown): Settings {
       }
     }
   }
-  const schemaOk = v.schemaVersion === undefined || v.schemaVersion === 1;
+  const schemaOk = v.schemaVersion === undefined || v.schemaVersion === 1 || v.schemaVersion === 2;
+  const selected = Array.isArray(v.sourceLanguages) ? v.sourceLanguages : [v.sourceLanguage];
+  const sourceLanguages = LANGUAGES.filter(l => selected.includes(l.code)).map(l => l.code);
   return {
     ...DEFAULT_SETTINGS,
     settingsVersion: Number.isSafeInteger(v.settingsVersion) && Number(v.settingsVersion) > 0 ? Number(v.settingsVersion) : 1,
     autoTranslate: schemaOk && v.autoTranslate === true,
     autoTranslateAllPages: v.autoTranslateAllPages === true || (v.autoTranslateAllPages === undefined && v.schemaVersion === 1),
-    sourceLanguage: LANGUAGES.some(l => l.code === v.sourceLanguage) ? v.sourceLanguage as SourceLanguage : 'en',
+    sourceLanguages: sourceLanguages.length ? sourceLanguages : ['en'],
+    targetLanguage: LANGUAGES.some(l => l.code === v.targetLanguage) ? v.targetLanguage as TargetLanguage : 'zh-CN',
     selectionLookup: v.selectionLookup !== false,
     translationScale: typeof v.translationScale === 'number' ? Math.min(1, Math.max(0.75, v.translationScale)) : 0.85,
     minimumTranslationFontPx: [12, 14, 16].includes(Number(v.minimumTranslationFontPx)) ? Number(v.minimumTranslationFontPx) as 12 | 14 | 16 : 12,
@@ -69,5 +76,5 @@ export function shouldAutoTranslate(settings: Settings, origin: string, paused =
 }
 
 export function settingsChangeRequiresReset(previous: Settings, next: Settings): boolean {
-  return previous.sourceLanguage !== next.sourceLanguage || previous.targetLanguage !== next.targetLanguage;
+  return previous.sourceLanguages.join(',') !== next.sourceLanguages.join(',') || previous.targetLanguage !== next.targetLanguage;
 }
