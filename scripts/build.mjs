@@ -7,6 +7,8 @@ await rm(path.join(root, 'dist'), { recursive: true, force: true });
 await mkdir(path.join(root, 'dist'), { recursive: true });
 await cp(path.join(root, 'src/manifest.json'), path.join(root, 'dist/manifest.json'));
 await cp(path.join(root, 'assets/icons'), path.join(root, 'dist/icons'), { recursive: true });
+await mkdir(path.join(root, 'dist/images'), { recursive: true });
+await cp(path.join(root, 'assets/reading-example.jpg'), path.join(root, 'dist/images/reading-example.jpg'));
 await cp(path.join(root, 'src/providers/offscreen.html'), path.join(root, 'dist/offscreen.html'));
 for (const name of ['popup.html', 'options.html', 'ui.css']) {
   await cp(path.join(root, 'src/ui', name), path.join(root, 'dist', name));

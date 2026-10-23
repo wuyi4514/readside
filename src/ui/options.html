@@ -7,11 +7,11 @@
     <main class="options-main">
       <aside class="introduction">
         <h1>网页对照翻译</h1>
-        <p class="intro-copy">原文与译文，逐段对照阅读。<br>选中词句，随时查看翻译。</p>
-        <div class="reading-scene" aria-label="对照阅读示例">
-          <p class="sample-original" lang="en">A little reading.<br>A little more understanding.</p>
-          <p class="sample-translation" lang="zh-CN">读一点，多理解一点。</p>
-        </div>
+        <p class="intro-copy">保留原文、逐段显示译文的浏览器插件，帮助你阅读外文网站，也能随时选中词句查译。</p>
+        <figure class="reading-scene">
+          <a class="reading-shot" href="images/reading-example.jpg" target="_blank" title="点击放大" aria-label="放大查看网页对照翻译截图"><img src="images/reading-example.jpg" width="420" height="650" alt="Anthropic 官网在英文标题和段落下方显示 Readside 生成的中文译文"></a>
+          <figcaption>实际网页效果 · <a href="https://www.anthropic.com/news" target="_blank" rel="noreferrer">anthropic.com ↗</a></figcaption>
+        </figure>
       </aside>
       <div class="preferences" aria-label="阅读设置">
         <section class="setting-section"><h2>翻译语言</h2><div class="options-language"><div><span class="field-label">源语言（可多选）</span><div id="source" class="product-select"></div></div><span class="language-arrow" aria-hidden="true">→</span><div><span class="field-label">目标语言</span><div id="target" class="product-select"></div></div></div><p class="helper">只翻译识别为源语言的内容。</p><div id="language-packs" class="language-packs" aria-label="语言包"></div><p id="engine-state" class="engine-state" role="status">正在检查语言包…</p></section>
@@ -21,6 +21,6 @@
         <div class="settings-bottom"><button id="clear-cache" class="button secondary small">清除翻译缓存</button><p id="message" class="message" role="status" hidden></p></div>
       </div>
     </main>
-    <footer class="options-footer"><div><a href="https://github.com/wuyi4514/parallel-read" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/wuyi4514/parallel-read/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明</a></div><span id="version">v0.2.1</span></footer>
+    <footer class="options-footer"><div><a href="https://github.com/wuyi4514/parallel-read" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/wuyi4514/parallel-read/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明</a></div><span id="version">v0.2.2</span></footer>
   </div><script type="module" src="options.js"></script>
 </body></html>

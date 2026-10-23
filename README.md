@@ -34,7 +34,7 @@ Readside 依据通用内容语义和布局识别阅读区域，不依赖特定�
 
 ## 安装
 
-1. 前往 [Releases](https://github.com/wuyi4514/parallel-read/releases/latest)，下载 `readside-0.2.1.zip` 并解压。
+1. 前往 [Releases](https://github.com/wuyi4514/parallel-read/releases/latest)，下载 `readside-0.2.2.zip` 并解压。
 2. 在桌面 Chrome 打开 `chrome://extensions`，开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
 4. 固定 Readside，打开设置，选择语言并下载对应语言包。
