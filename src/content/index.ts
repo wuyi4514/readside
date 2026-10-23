@@ -1,6 +1,7 @@
 import { Controller } from './controller';
 import type { Message } from '../shared/messages';
 
+// Keep the existing guard so reinjection cannot create a second controller.
 const scope = globalThis as typeof globalThis & { __parallelReadV1?: Controller };
 if (!scope.__parallelReadV1 && document.body) {
   // A reloaded extension gets a new isolated world; remove its prior visual output.

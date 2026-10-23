@@ -5,6 +5,7 @@ import { nativeMessage } from './native-host';
 import { updateAction, forgetAction } from './action-icon';
 
 const KEY = 'settings';
+// Persisted registration ID stays stable across brand changes.
 const SCRIPT_ID = 'parallel-read';
 let writes: Promise<unknown> = Promise.resolve();
 

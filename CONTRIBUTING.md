@@ -7,8 +7,8 @@
 需要 Node.js 24、npm 和桌面 Chrome。
 
 ```sh
-git clone https://github.com/wuyi4514/parallel-read.git
-cd parallel-read
+git clone https://github.com/wuyi4514/readside.git
+cd readside
 npm ci
 npm run build
 ```
@@ -41,7 +41,7 @@ npm run build
 
 ## 提交修改
 
-较大的功能和行为变更可先在 [Issues](https://github.com/wuyi4514/parallel-read/issues) 说明使用场景。提交 Pull Request 时描述问题、修改后的行为以及涉及的界面或文档；界面改动可以附上不含个人信息的截图。
+较大的功能和行为变更可先在 [Issues](https://github.com/wuyi4514/readside/issues) 说明使用场景。提交 Pull Request 时描述问题、修改后的行为以及涉及的界面或文档；界面改动可以附上不含个人信息的截图。
 
 提交内容应聚焦一个明确问题。请勿包含构建目录、浏览器配置、语言模型、凭据或私人网页资料。
 

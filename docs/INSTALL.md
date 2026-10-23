@@ -8,8 +8,8 @@
 
 ## 安装 Readside
 
-1. 打开 [Releases](https://github.com/wuyi4514/parallel-read/releases/latest)。
-2. 下载 `readside-0.2.2.zip`，解压到准备长期保留的目录。
+1. 打开 [Releases](https://github.com/wuyi4514/readside/releases/latest)。
+2. 下载 `readside-0.2.3.zip`，解压到准备长期保留的目录。
 3. 在 Chrome 地址栏输入 `chrome://extensions`，打开右上角的“开发者模式”。
 4. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
 5. 在 Chrome 扩展菜单中固定 Readside。
@@ -51,4 +51,4 @@ GitHub 的 Source code 压缩包是源代码；安装时请使用名称以 `read
 
 在 `chrome://extensions` 中移除 Readside，并刷新已打开的网页。扩展设置随卸载移除；Chrome 管理的共享模型由浏览器自行管理。
 
-更多操作见[使用指南](https://github.com/wuyi4514/parallel-read/blob/main/docs/USAGE.md)。
+更多操作见[使用指南](https://github.com/wuyi4514/readside/blob/main/docs/USAGE.md)。

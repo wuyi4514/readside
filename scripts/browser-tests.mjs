@@ -94,6 +94,7 @@ try {
   manifest.optional_host_permissions = [];
   await writeFile(path.join(extensionPath, 'manifest.json'), JSON.stringify(manifest, null, 2));
   for (const extension of (await cdp.send('Extensions.getExtensions')).extensions) {
+    // Earlier names identify older builds in this isolated profile.
     if (['Parallel Read · 对照读', '伴读 · Readside', 'Readside'].includes(extension.name)) await cdp.send('Extensions.uninstall', { id: extension.id });
   }
   const { id } = await cdp.send('Extensions.loadUnpacked', { path: extensionPath });

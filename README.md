@@ -4,14 +4,14 @@
 <h1 align="center">Readside</h1>
 <p align="center">保留原文，让译文陪你读懂每一页。</p>
 <p align="center">
-  <a href="https://github.com/wuyi4514/parallel-read/releases/latest">下载</a> ·
+  <a href="https://github.com/wuyi4514/readside/releases/latest">下载</a> ·
   <a href="docs/INSTALL.md">安装指南</a> ·
   <a href="docs/USAGE.md">使用指南</a> ·
   <a href="PRIVACY.md">隐私说明</a> ·
   <a href="CONTRIBUTING.md">参与贡献</a>
 </p>
 <p align="center">
-  <a href="https://github.com/wuyi4514/parallel-read/releases/latest"><img src="https://img.shields.io/github/v/release/wuyi4514/parallel-read?color=3266e8&label=version" alt="GitHub Release"></a>
+  <a href="https://github.com/wuyi4514/readside/releases/latest"><img src="https://img.shields.io/github/v/release/wuyi4514/readside?color=3266e8&label=version" alt="GitHub Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3266e8" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Chrome-138%2B-3266e8" alt="Chrome 138+">
 </p>
@@ -34,7 +34,7 @@ Readside 依据通用内容语义和布局识别阅读区域，不依赖特定�
 
 ## 安装
 
-1. 前往 [Releases](https://github.com/wuyi4514/parallel-read/releases/latest)，下载 `readside-0.2.2.zip` 并解压。
+1. 前往 [Releases](https://github.com/wuyi4514/readside/releases/latest)，下载 `readside-0.2.3.zip` 并解压。
 2. 在桌面 Chrome 打开 `chrome://extensions`，开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
 4. 固定 Readside，打开设置，选择语言并下载对应语言包。
@@ -73,8 +73,8 @@ Readside 依据通用内容语义和布局识别阅读区域，不依赖特定�
 需要 Node.js 24 和 npm。
 
 ```sh
-git clone https://github.com/wuyi4514/parallel-read.git
-cd parallel-read
+git clone https://github.com/wuyi4514/readside.git
+cd readside
 npm ci
 npm run build
 ```
@@ -90,7 +90,7 @@ npm run build
 - [更新记录](docs/CHANGELOG.md)：各版本的功能与改进。
 - [贡献指南](CONTRIBUTING.md)：本地开发、代码约定与提交方式。
 
-欢迎通过 [Issues](https://github.com/wuyi4514/parallel-read/issues) 提交建议和兼容性问题。分享页面样例前，请去除个人信息与登录凭据。
+欢迎通过 [Issues](https://github.com/wuyi4514/readside/issues) 提交建议和兼容性问题。分享页面样例前，请去除个人信息与登录凭据。
 
 ## License
 
