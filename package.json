@@ -1,0 +1,31 @@
+{
+  "name": "parallel-read",
+  "version": "0.1.0-preview.1",
+  "private": true,
+  "description": "Quiet bilingual reading for the English web",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:browser": "node scripts/browser-tests.mjs",
+    "browser:start": "node scripts/launch-chrome.mjs",
+    "check": "npm run typecheck && npm test && npm run build",
+    "package": "npm run check && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.6",
+    "@types/node": "26.6.5",
+    "esbuild": "0.28.2",
+    "fflate": "0.8.3",
+    "jsdom": "29.1.1",
+    "playwright": "1.64.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

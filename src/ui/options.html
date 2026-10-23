@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Parallel Read · 阅读设置</title><link rel="stylesheet" href="ui.css"></head>
+<body class="options">
+  <div class="options-shell">
+    <header class="options-head"><a class="brand" href="options.html"><img src="icons/48.png" width="34" height="34" alt=""><div><strong>对照读</strong><span>PARALLEL READ</span></div></a><span class="local-mark"><span class="status-dot"></span>在你的浏览器里翻译</span></header>
+    <main class="options-main">
+      <section class="introduction"><span class="eyebrow">READ A LITTLE FURTHER.</span><h1>读懂世界，<br>也读懂英文。</h1><p class="intro-copy">原文不走远，译文不抢眼。<br>在每一次阅读里，离英文更近一点。</p>
+        <div class="reading-sample" aria-label="对照阅读示例"><span class="sample-label">对照，恰到好处。</span><h2>A bigger world,<br>one page at a time.</h2><p class="sample-translation">一页一页，读见更大的世界。</p><div class="sample-rule"></div><p class="sample-original">Keep reading. Every sentence is a small step forward.</p><p class="sample-translation small">继续读下去。每句话，都是一点进步。</p></div>
+        <p class="sample-note">示例译文仅用于展示排版。</p>
+      </section>
+      <section class="preferences" aria-label="阅读设置">
+        <div class="section-heading"><span class="eyebrow">MAKE IT YOURS</span><h2>准备好，就开始读。</h2></div>
+        <section class="setting-section"><div class="section-top"><h3><span>01</span>翻译语言</h3><span class="tag">本地</span></div><div class="options-language"><label><span class="field-label">仅翻译此语言</span><select id="source" aria-label="仅翻译此语言"></select></label><span class="language-arrow">→</span><label><span class="field-label">目标语言</span><select disabled aria-label="目标语言"><option>简体中文</option></select></label></div><p class="helper">默认只翻译英语；其他语言的段落保留原样。</p><div id="engine-state" class="engine-state" role="status">正在检查本地翻译…</div><progress id="progress" max="1" hidden></progress><button id="prepare" class="button primary wide">准备本地翻译 <span aria-hidden="true">↓</span></button><button id="cancel-prepare" class="text-button" hidden>取消准备</button><p class="helper">首次需要下载语言包。准备后可在本地翻译，不需要 API Key。</p></section>
+        <section class="setting-section"><h3><span>02</span>自动对照</h3><p class="helper">允许读取网页文字，才能在原文下方添加译文。</p><div class="permission-actions"><button id="enable-all" class="button primary wide">在所有 HTTPS 网站开启 <span aria-hidden="true">↗</span></button></div><label class="setting-line" for="auto"><span>自动翻译</span><input id="auto" type="checkbox" class="checkbox"></label><p id="permission-state" class="helper"></p></section>
+        <section class="setting-section"><h3><span>03</span>阅读习惯</h3><label class="setting-line" for="font-size"><span>译文最小字号</span><select id="font-size"><option value="12">12 px · 轻量</option><option value="14">14 px · 舒适</option><option value="16">16 px · 大字</option></select></label><label class="setting-line" for="selection"><span>选择词句后查译</span><input id="selection" type="checkbox" class="checkbox"></label><p class="helper">正文逐块对照；按钮、导航等紧凑区域可选择文字后查译。</p></section>
+        <section class="setting-section last"><div class="section-top"><h3>网站规则</h3><button id="clear-rules" class="text-button">清除规则</button></div><div id="site-rules" class="rules-list"></div><button id="clear-cache" class="text-button">清除本次翻译缓存</button></section>
+        <p id="message" class="message" role="status" hidden></p>
+      </section>
+    </main>
+    <footer class="options-footer"><span>你的文字，留在你的浏览器。<br><small>不上传正文，无账号、无广告、无追踪。</small></span><div><a href="https://github.com/wuyi4514/parallel-read" target="_blank" rel="noreferrer">GitHub ↗</a><a href="https://github.com/wuyi4514/parallel-read/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明 ↗</a><span id="version">v0.1.0-preview.1</span></div></footer>
+  </div><script type="module" src="options.js"></script>
+</body></html>

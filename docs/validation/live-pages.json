@@ -1,0 +1,33 @@
+{
+  "chrome": "155.0.8059.85",
+  "results": [
+    {
+      "name": "anthropic",
+      "url": "https://www.anthropic.com/news",
+      "title": "Newsroom \\ Anthropic",
+      "translations": 6,
+      "overflow": false
+    },
+    {
+      "name": "english-blog",
+      "url": "https://www.joshwcomeau.com/css/interactive-guide-to-flexbox/",
+      "title": "An Interactive Guide to Flexbox in CSS • Josh W. Comeau",
+      "translations": 2,
+      "overflow": false
+    },
+    {
+      "name": "github",
+      "url": "https://github.com/features",
+      "title": "GitHub Features · GitHub",
+      "translations": 8,
+      "overflow": false
+    },
+    {
+      "name": "x-public",
+      "url": "https://x.com/OpenAI",
+      "title": "OpenAI (@OpenAI) / X",
+      "translations": 5,
+      "overflow": false
+    }
+  ]
+}

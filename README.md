@@ -1,49 +1,70 @@
 # Parallel Read · 对照读
 
-Read the English web, with quiet Chinese translations right below the original.
+Read the English web, with quiet Chinese translations below the original.
 
-保留英文原文，在下方显示轻量中文译文。看懂产品官网、博客和 X，也能在日常阅读中学习英语。
+保留英文原文，在标题和段落下显示轻量中文译文。看懂网站，也在阅读中学习英语。
 
-> **项目状态：规格阶段。当前没有可安装的插件或下载版本。**
->
-> **Status: specification only. There is no installable extension or release yet.**
+**当前版本：`0.1.0-preview.1` 开发预览。** 已实现 Chrome 插件并通过本地模型和真实网页验证；完整首版验收尚未完成。请先在自己的常用网页试用，具体证据和限制见[验证报告](docs/VALIDATION.md)。
 
-## 计划提供的体验
+[下载构建包](https://github.com/wuyi4514/parallel-read/releases/tag/v0.1.0-preview.1) · [中文安装说明](docs/INSTALL.md) · [反馈问题](https://github.com/wuyi4514/parallel-read/issues)
 
-- 开启自动翻译后，在已授权的网站上自动显示对照译文。
-- 标题、段落、卡片和帖子逐块对照，译文较小、较轻，保留网站原有风格与交互。
-- 默认仅翻译英语，目标语言为简体中文；法语、西语等内容不会因为出现在英文网站上就被自动翻译。
-- 支持选择要翻译的源语言，并为未来日语、韩语等目标语言预留扩展能力。
-- 选择单词或句子后按需查看译文，帮助理解词句在当前语境中的含义。
-- 一键关闭并移除插件译文；不会用中文替换英文原文。
+![原创测试页面上的实际对照翻译](docs/images/reader.png)
 
-## 首版设计取舍
+## 已实现
 
-首版面向桌面 Chrome，采用 Manifest V3，计划优先使用 Chrome 的本地翻译能力，无须用户填写 API Key。首次使用可能需要准备语言包；运行时能力检测和扩展内的自动执行验证是实现前的必要步骤。[Chrome 官方能力说明](https://developer.chrome.com/docs/ai/built-in-apis)
+- 自动对照开关、当前页翻译和恢复原文、按网站设置规则。
+- 标题和正文分块对应；译文较小、较轻，保留原始节点、链接和交互。
+- 默认仅翻译英语到简体中文；逐块检测语言，同页法语、西语等不随英文一并翻译。
+- 可选择英语、法语、西班牙语、德语、日语、韩语作为源语言，具体可用性由设备检测；目标目前固定简体中文。
+- 选择词句后点击查译，可复制原文／译文、查看原句参考。
+- 动态新增内容、文本更新、列表节点复用保护，以及明暗主题和最小字号设置。
 
-正文和可伸展卡片采用“原文在上、译文在下”。固定高度按钮、紧凑导航等区域若无法安全容纳双语，则提供按需查阅。对照文字可以增加正常内容高度，组件的点击、焦点和布局约束必须保留。
+采用**通用内容语义、自然文本边界和布局检查**，不依赖特定网站域名、私有 class、测试标记或专用帖子选择器。网站换框架或修改标记后，仍按同一套内容规则识别。复杂布局可能保守跳过，无法承诺覆盖所有网站或每一段文字。
 
-默认不连接项目服务器，也不自动转用云翻译。对 Edge、Firefox、Safari、移动端和受浏览器保护的页面，暂不承诺支持。
+紧凑按钮、导航、菜单和裁切区不强行插入译文，可选择文字查译。普通内容允许自然增高；原文始终保留。
 
-## 规格文档
+## 本地翻译
+
+桌面 Chrome、Manifest V3。使用 Chrome Translator / Language Detector，首次需要用户点击准备语言包，之后在已授权网页自动执行。无需 API Key，无项目方服务器、遥测或云翻译回退。[Chrome 官方能力说明](https://developer.chrome.com/docs/ai/built-in-apis)
+
+当前实测 Chrome 155 / macOS。Manifest 基线为 Chrome 138，仍需设备、策略、存储空间与语言方向检查；其他 Chrome 版本、系统和浏览器尚未完成验证。主要支持 HTTPS；PDF、图片、视频、跨域 iframe 和封闭 Shadow DOM 不覆盖。
+
+表单、编辑器、隐藏内容和标准聊天日志区域排除。通用 DOM 规则不能识别所有私密页面，敏感网站可关闭自动翻译。正文和译文仅保留有限内存缓存，网站规则存本机，详见[隐私说明](PRIVACY.md)。
+
+## 从源码构建
+
+需要 Node.js 24 LTS 和 npm。运行：
+
+```sh
+npm ci
+npm run package
+```
+
+`dist/` 可在 `chrome://extensions` 中加载；`releases/` 包含可安装 ZIP 和 SHA-256。GitHub 自动生成的 Source code ZIP 需要先构建。
+
+验证命令：
+
+```sh
+npm run check           # 类型检查、单元测试、构建
+npm run browser:start   # 启动独立 Chrome 测试配置，按提示准备模型
+npm run test:browser    # 使用真实本地模型的浏览器回归
+```
+
+浏览器测试需要支持 CDP 扩展调试的桌面 Chrome，默认本机端口 9327；测试模型与 profile 放在被忽略的 `.private/`。`CHROME_PATH` 可指定 Chrome 路径。CI 执行类型检查、单测、构建和打包；不会把无模型的 CI 结果冒充真实翻译验收。
+
+## 文档
 
 | 文档 | 内容 |
 | --- | --- |
-| [SPEC.md](SPEC.md) | 用户场景、首版范围、交互、排版、语言策略和版本边界 |
-| [技术规格](docs/TECHNICAL_SPEC.md) | DOM 分段、翻译接口、状态、权限、恢复与性能 |
-| [验收清单](docs/ACCEPTANCE.md) | 可执行用例、真实网站验证和发布条件 |
-| [调研依据](docs/RESEARCH.md) | 官方资料、已确认能力、待验证假设 |
-| [隐私设计](PRIVACY.md) | 首版计划处理的数据和边界 |
+| [安装说明](docs/INSTALL.md) | 下载、准备模型、授权和日常使用 |
+| [验证报告](docs/VALIDATION.md) | 已执行的检查、真实网页观察和待验证项 |
+| [产品规格](SPEC.md) | 用户场景、阅读体验和正式首版目标 |
+| [技术规格](docs/TECHNICAL_SPEC.md) | 通用提取、版本保护、权限与实现结构 |
+| [完整验收清单](docs/ACCEPTANCE.md) | 正式首版验收要求；不等于全部已通过 |
+| [引擎验证](docs/ENGINE_SPIKE.md) | 本地模型准备、跨 origin 和自动执行证据 |
+| [调研依据](docs/RESEARCH.md) | 官方资料与设计依据 |
 
-文档中的功能、指标和里程碑均为待实现要求，不能视为已经通过测试的能力。
-
-## 下载与安装
-
-目前请勿将 GitHub 的源码 ZIP 当作可安装插件。完成开发和验收后，计划通过本仓库的 GitHub Releases 提供包含 `manifest.json` 的构建 ZIP、校验值和中文安装说明。Chrome Web Store 上架属于后续独立事项。
-
-## 参与与反馈
-
-欢迎通过 [Issues](https://github.com/wuyi4514/parallel-read/issues) 讨论规格、网站兼容问题和学习体验。报告问题时请移除页面中的个人信息；不要公开提交登录后的私人内容、访问令牌或浏览记录。
+欢迎通过 Issues 提供脱敏后的兼容性样例。请勿上传私人页面、登录凭据、令牌或浏览记录。
 
 ## License
 

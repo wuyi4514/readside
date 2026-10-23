@@ -1,0 +1,126 @@
+{
+  "chrome": "155.0.8059.85",
+  "results": [
+    {
+      "name": "Local models available in installed extension",
+      "status": "passed",
+      "ms": 27
+    },
+    {
+      "name": "Enable switch persists to extension storage",
+      "status": "passed",
+      "ms": 15
+    },
+    {
+      "name": "Automatic real translation on strict-CSP page",
+      "status": "passed",
+      "ms": 867
+    },
+    {
+      "name": "Cards receive separate title and paragraph translations",
+      "status": "passed",
+      "ms": 20
+    },
+    {
+      "name": "French, Spanish, Chinese and protected content are untouched",
+      "status": "passed",
+      "ms": 23
+    },
+    {
+      "name": "Inline nodes, links and original text remain intact",
+      "status": "passed",
+      "ms": 8
+    },
+    {
+      "name": "Dynamically added paragraph is automatically translated",
+      "status": "passed",
+      "ms": 103
+    },
+    {
+      "name": "Updated source receives a fresh translation",
+      "status": "passed",
+      "ms": 152
+    },
+    {
+      "name": "Dark mode maintains readable translation contrast",
+      "status": "passed",
+      "ms": 363
+    },
+    {
+      "name": "Narrow desktop does not create horizontal overflow",
+      "status": "passed",
+      "ms": 305
+    },
+    {
+      "name": "Select a real word and look up its real local translation",
+      "status": "passed",
+      "ms": 274
+    },
+    {
+      "name": "Generic blocks keep main and quoted posts separate (feed fixture)",
+      "status": "passed",
+      "ms": 391
+    },
+    {
+      "name": "200 recycled post updates keep only the final text translation",
+      "status": "passed",
+      "ms": 192
+    },
+    {
+      "name": "New wrapper tags and unrelated attributes do not break extraction",
+      "status": "passed",
+      "ms": 167
+    },
+    {
+      "name": "Whole-card links preserve their original accessible name",
+      "status": "passed",
+      "ms": 206
+    },
+    {
+      "name": "Restore current page removes translations and pauses new content",
+      "status": "passed",
+      "ms": 689
+    },
+    {
+      "name": "Global off clears every reachable document",
+      "status": "passed",
+      "ms": 914
+    },
+    {
+      "name": "Manual translation works with global automatic translation off",
+      "status": "passed",
+      "ms": 808
+    },
+    {
+      "name": "Service worker termination preserves settings and automatic operation",
+      "status": "passed",
+      "ms": 553
+    },
+    {
+      "name": "Actual extension action popup addresses the active page",
+      "status": "passed",
+      "ms": 2
+    },
+    {
+      "name": "Actual popup restore removes current-page translations",
+      "status": "passed",
+      "ms": 4
+    },
+    {
+      "name": "Actual popup translates the current page",
+      "status": "passed",
+      "ms": 189
+    },
+    {
+      "name": "Actual popup switch stops and persists automatic translation",
+      "status": "passed",
+      "ms": 15
+    },
+    {
+      "name": "Actual popup switch resumes automatic translation",
+      "status": "passed",
+      "ms": 797
+    }
+  ],
+  "errors": []
+}

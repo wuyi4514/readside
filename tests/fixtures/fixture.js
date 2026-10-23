@@ -1,0 +1,2 @@
+document.querySelector('#append')?.addEventListener('click',()=>{const p=document.createElement('p');p.id='new-paragraph';p.textContent='Learning a new language becomes easier when you can read interesting stories and understand the ideas behind them.';document.querySelector('#dynamic').append(p);});
+document.querySelector('#replace')?.addEventListener('click',()=>{document.querySelector('#body-a').textContent='This is the updated article. It describes a different product and should receive a fresh translation rather than the previous result.';});
