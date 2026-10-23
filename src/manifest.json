@@ -1,9 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Readside",
-  "version": "0.2.0",
-  "version_name": "0.2.0-preview.3",
-  "description": "保留网页原文，在下方显示轻量中文译文。支持多种源语言和词句查译。",
+  "version": "0.2.1",
+  "description": "保留网页原文，在下方显示轻量译文。支持多语言对照阅读与词句查译。",
   "minimum_chrome_version": "138",
   "permissions": [
     "storage",

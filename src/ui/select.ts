@@ -40,7 +40,9 @@ export class ProductSelect {
       const row = document.createElement('div'); row.className = 'select-option'; row.id = `${this.panel.id}-${index}`;
       row.setAttribute('role', 'option'); row.setAttribute('aria-selected', String(this.values.includes(option.value)));
       row.setAttribute('aria-disabled', String(!!option.disabled || (this.config.multiple && this.values.length === 1 && this.values[0] === option.value)));
-      const check = document.createElement('span'); check.className = this.config.multiple ? 'option-check' : 'option-tick'; check.setAttribute('aria-hidden', 'true'); check.textContent = '✓';
+      const check = document.createElement('span'); check.className = this.config.multiple ? 'option-check' : 'option-tick'; check.setAttribute('aria-hidden', 'true');
+      const mark = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); mark.setAttribute('viewBox', '0 0 16 16');
+      const tick = document.createElementNS('http://www.w3.org/2000/svg', 'path'); tick.setAttribute('d', 'm4 8 2.5 2.5L12 5.5'); mark.append(tick); check.append(mark);
       const label = document.createElement('span'); label.className = 'option-label'; label.textContent = option.label;
       if (option.detail) { const detail = document.createElement('small'); detail.textContent = option.detail; label.append(detail); }
       row.append(label, check);

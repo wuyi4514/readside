@@ -125,7 +125,7 @@ try {
   });
   await page.screenshot({ path: path.join(evidenceDir, 'reader-light.png'), fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1100 });
-  await page.screenshot({ path: path.join(evidenceDir, 'reader-preview.png'), scale: 'css', clip: { x: 90, y: 125, width: 1260, height: 880 } });
+  await page.screenshot({ path: path.join(evidenceDir, 'reader-overview.png'), scale: 'css', clip: { x: 90, y: 125, width: 1260, height: 880 } });
   await check('French, Spanish, Chinese and protected content are untouched', async () => {
     await page.locator('#mixed').scrollIntoViewIfNeeded();
     await page.waitForSelector('#mixed > [data-pr-owned="translation"]', { timeout: 30000 });

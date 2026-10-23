@@ -5,8 +5,14 @@
   <div class="options-shell">
     <header class="options-head"><a class="brand" href="options.html"><img src="icons/48.png" width="36" height="36" alt=""><strong>Readside</strong></a></header>
     <main class="options-main">
-      <aside class="introduction"><h1>网页对照翻译</h1><p class="intro-copy">保留网页原文，在下方显示译文。阅读外文网站时，可以对照理解每个段落，也可以选中单词或句子查看翻译。</p>
-        <div class="reading-sample" aria-label="对照阅读示例"><div class="sample-language">英文原文</div><p class="sample-original">A little reading, a little more understanding.</p><div class="sample-divider"></div><div class="sample-language">中文译文</div><p class="sample-translation">读一点，多理解一点。</p></div>
+      <aside class="introduction">
+        <h1>网页对照翻译</h1>
+        <p class="intro-copy">保留原文，在下方显示译文。读外文网站时，逐段对照理解，也可以选中词句查看翻译。</p>
+        <div class="reading-scene" aria-label="对照阅读示例">
+          <span class="sample-caption">对照阅读</span>
+          <p class="sample-original" lang="en">Small details can change how we see the world.</p>
+          <p class="sample-translation" lang="zh-CN">微小的细节，也能改变我们看待世界的方式。</p>
+        </div>
       </aside>
       <div class="preferences" aria-label="阅读设置">
         <section class="setting-section"><h2>翻译语言</h2><div class="options-language"><div><span class="field-label">源语言（可多选）</span><div id="source" class="product-select"></div></div><span class="language-arrow" aria-hidden="true">→</span><div><span class="field-label">目标语言</span><div id="target" class="product-select"></div></div></div><p class="helper">只翻译识别为源语言的内容。</p><div id="language-packs" class="language-packs" aria-label="语言包"></div><p id="engine-state" class="engine-state" role="status">正在检查语言包…</p></section>
@@ -16,6 +22,6 @@
         <div class="settings-bottom"><button id="clear-cache" class="button secondary small">清除翻译缓存</button><p id="message" class="message" role="status" hidden></p></div>
       </div>
     </main>
-    <footer class="options-footer"><div><a href="https://github.com/wuyi4514/parallel-read" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/wuyi4514/parallel-read/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明</a></div><span id="version">v0.2.0-preview.3</span></footer>
+    <footer class="options-footer"><div><a href="https://github.com/wuyi4514/parallel-read" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/wuyi4514/parallel-read/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明</a></div><span id="version">v0.2.1</span></footer>
   </div><script type="module" src="options.js"></script>
 </body></html>
