@@ -15,7 +15,7 @@ const results = [];
 const errors = [];
 const networks = new Set();
 const server = http.createServer(async (req, res) => {
-  const routes = { '/': 'reader.html', '/feed.html': 'feed.html', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
+  const routes = { '/': 'reader.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
   const file = routes[new URL(req.url, 'http://localhost').pathname];
   if (!file) { res.writeHead(404); res.end(); return; }
   const body = await readFile(path.join(rootDir, 'tests/fixtures', file));
@@ -69,7 +69,7 @@ async function actionPopup(page, extensionId) {
   await command('Runtime.enable');
   // Wait for the popup's async settings initialization.
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (await evaluate('!!document.querySelector("#auto") && !document.querySelector("#auto").disabled && document.querySelector("#site").textContent !== "当前页面"')) break;
+    if (await evaluate('!!document.querySelector("#auto-on") && !document.querySelector("#auto-on").matches(":disabled") && document.querySelector("#status-text").textContent !== "正在连接…"')) break;
     if (attempt === 99) throw new Error('Popup settings did not initialize');
     await new Promise(resolve => setTimeout(resolve, 50));
   }
@@ -90,7 +90,7 @@ try {
   manifest.optional_host_permissions = [];
   await writeFile(path.join(extensionPath, 'manifest.json'), JSON.stringify(manifest, null, 2));
   for (const extension of (await cdp.send('Extensions.getExtensions')).extensions) {
-    if (extension.name.startsWith('Parallel Read')) await cdp.send('Extensions.uninstall', { id: extension.id });
+    if (['Parallel Read · 对照读', '伴读 · Readside'].includes(extension.name)) await cdp.send('Extensions.uninstall', { id: extension.id });
   }
   const { id } = await cdp.send('Extensions.loadUnpacked', { path: extensionPath });
   const options = await context.newPage();
@@ -101,7 +101,9 @@ try {
     await options.waitForFunction(() => document.querySelector('#engine-state')?.textContent.includes('已就绪'), { }, { timeout: 20000 });
   });
   await options.screenshot({ path: path.join(evidenceDir, 'settings.png'), fullPage: true });
-  await options.locator('#enable-all').click();
+  await options.locator('#all-sites-yes').check();
+  await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings?.autoTranslateAllPages === true);
+  await options.locator('#auto-on').check();
   await check('Enable switch persists to extension storage', async () => {
     await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings?.autoTranslate === true);
     assert.equal(await options.evaluate(async () => (await chrome.storage.local.get('settings')).settings?.autoTranslate), true);
@@ -130,6 +132,21 @@ try {
     assert.equal(await page.locator('#inline-link').getAttribute('href'), '#team');
     assert.equal(await page.locator('#link-a').getAttribute('href'), '#details-a');
     assert.equal(await page.locator('#body-a').evaluate(node => node.childNodes[0].textContent), 'Bring your notes, plans, and projects together in one quiet space. Find the important details without losing the bigger picture.');
+  });
+  await check('New opt-outs, editable roles and controls remove existing translations', async () => {
+    await page.locator('#body-a').scrollIntoViewIfNeeded();
+    for (const [attribute, value] of [['translate', 'no'], ['contenteditable', 'true'], ['role', 'button']]) {
+      await page.locator('#body-a').evaluate((node, data) => node.setAttribute(data[0], data[1]), [attribute, value]);
+      await page.waitForFunction(() => !document.querySelector('#body-a > [data-pr-owned]'));
+      await page.locator('#body-a').evaluate((node, key) => node.removeAttribute(key), attribute);
+      await page.waitForSelector('#body-a > [data-pr-owned]', { timeout: 30000 });
+    }
+  });
+  await check('Changed local language evidence invalidates and then restores the block', async () => {
+    await page.locator('#body-a').evaluate(node => node.setAttribute('lang', 'fr'));
+    await page.waitForFunction(() => !document.querySelector('#body-a > [data-pr-owned]'));
+    await page.locator('#body-a').evaluate(node => node.setAttribute('lang', 'en'));
+    await page.waitForSelector('#body-a > [data-pr-owned]', { timeout: 30000 });
   });
   await check('Dynamically added paragraph is automatically translated', async () => {
     await page.locator('#append').click();
@@ -203,6 +220,28 @@ try {
     await timeline.waitForSelector('#whole-card-text > [data-pr-owned]', { timeout: 30000 });
     assert.equal(await timeline.getByRole('link', { name: text, exact: true }).count(), 1);
   });
+  const layouts = await context.newPage();
+  await layouts.setViewportSize({ width: 1280, height: 1000 });
+  await layouts.goto('http://127.0.0.1:9329/layout.html');
+  await layouts.bringToFront();
+  await check('Partially visible carousel cards translate within their own text bounds', async () => {
+    assert.ok(await layouts.locator('#carousel-quote').evaluate(node => node.getBoundingClientRect().right > innerWidth));
+    await layouts.waitForSelector('#carousel-quote > [data-pr-owned]', { timeout: 30000 });
+    assert.ok(await layouts.locator('#carousel-quote > [data-pr-owned]').evaluate(node => parseFloat(getComputedStyle(node).fontSize) <= 18));
+    await layouts.locator('#carousel').evaluate(node => { node.scrollLeft = 650; });
+    assert.equal(await layouts.locator('#carousel-quote > [data-pr-owned]').count(), 1);
+    assert.equal(await layouts.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), true);
+  });
+  await check('Layout-protected content retries when the container expands', async () => {
+    assert.equal(await layouts.locator('#expanding-copy > [data-pr-owned]').count(), 0);
+    await layouts.locator('#expand').click();
+    await layouts.waitForSelector('#expanding-copy > [data-pr-owned]', { timeout: 30000 });
+  });
+  await check('Column-layout headings receive one complete translation', async () => {
+    await layouts.waitForSelector('#column-heading > [data-pr-owned]', { timeout: 30000 });
+    assert.equal(await layouts.locator('#column-heading [data-pr-owned]').count(), 1);
+  });
+  await layouts.close();
   await page.bringToFront();
   await check('Restore current page removes translations and pauses new content', async () => {
     const tabs = await options.evaluate(()=>chrome.tabs.query({}));
@@ -214,7 +253,7 @@ try {
   });
   await check('Global off clears every reachable document', async () => {
     assert.ok(await timeline.locator('[data-pr-owned="translation"]').count()>0);
-    await options.locator('#auto').uncheck();
+    await options.locator('#auto-off').check();
     await page.waitForTimeout(400);
     assert.equal(await page.locator('[data-pr-owned="translation"]').count(),0);
     assert.equal(await timeline.locator('[data-pr-owned="translation"]').count(),0);
@@ -227,7 +266,7 @@ try {
     assert.equal(await options.evaluate(async()=>(await chrome.storage.local.get('settings')).settings.autoTranslate),false);
   });
   await check('Service worker termination preserves settings and automatic operation',async()=>{
-    await options.locator('#auto').check();
+    await options.locator('#auto-on').check();
     await options.waitForFunction(async()=>(await chrome.storage.local.get('settings')).settings.autoTranslate);
     const workerSession=await context.newCDPSession(options);await workerSession.send('ServiceWorker.enable');await workerSession.send('ServiceWorker.stopAllWorkers');
     await options.locator('#font-size').selectOption('14');
@@ -235,10 +274,39 @@ try {
     await second.waitForSelector('#hero > [data-pr-owned]',{timeout:30000});
     assert.equal(await options.evaluate(async()=>(await chrome.storage.local.get('settings')).settings.minimumTranslationFontPx),14);
   });
+  await options.bringToFront();
+  await check('Empty website settings stay hidden', async () => {
+    assert.equal(await options.locator('#rules-section').isVisible(), false);
+  });
+  await options.locator('#all-sites-no').check();
+  await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslateAllPages === false);
+  const scoped = await context.newPage(); await scoped.goto('http://127.0.0.1:9329/');
+  await scoped.bringToFront();
+  await check('Selected-site mode prevents automatic work despite broad test permissions', async () => {
+    await scoped.waitForTimeout(800);
+    assert.equal(await scoped.locator('[data-pr-owned="translation"]').count(), 0);
+  });
+  const sitePopup = await actionPopup(scoped, id);
+  await check('Current-site permission action enables the selected site', async () => {
+    assert.equal(await sitePopup.evaluate('document.querySelector("#allow-site").hidden'), false);
+    await sitePopup.evaluate('document.querySelector("#allow-site").click()');
+    await scoped.waitForSelector('#hero > [data-pr-owned]', { timeout: 30000 });
+    await options.waitForFunction(() => !document.querySelector('#rules-section').hidden);
+  });
+  await sitePopup.close();
+  await options.bringToFront();
+  await check('Removing the last allowed site removes its empty settings section', async () => {
+    await options.getByRole('button', { name: '移除 http://127.0.0.1:9329', exact: true }).click();
+    await scoped.waitForFunction(() => document.querySelectorAll('[data-pr-owned="translation"]').length === 0);
+    assert.equal(await options.locator('#rules-section').isVisible(), false);
+  });
+  await scoped.close();
+  await options.locator('#all-sites-yes').check();
+  await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslateAllPages === true);
   const popup = await actionPopup(page, id);
   await check('Actual extension action popup addresses the active page', async () => {
-    assert.equal(await popup.evaluate('document.querySelector("#site").textContent'), '127.0.0.1');
-    assert.equal(await popup.evaluate('document.querySelector("#auto").getAttribute("aria-checked")'), 'true');
+    assert.match(await popup.evaluate('document.title'), /伴读/);
+    assert.equal(await popup.evaluate('document.querySelector("#auto-on").checked'), true);
   });
   await check('Actual popup restore removes current-page translations', async () => {
     await popup.evaluate('document.querySelector("#restore").click()');
@@ -249,12 +317,12 @@ try {
     await page.waitForSelector('#hero > [data-pr-owned]', { timeout: 30000 });
   });
   await check('Actual popup switch stops and persists automatic translation', async () => {
-    await popup.evaluate('document.querySelector("#auto").click()');
+    await popup.evaluate('document.querySelector("#auto-off").click()');
     await page.waitForFunction(() => document.querySelectorAll('[data-pr-owned="translation"]').length === 0);
     await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslate === false);
   });
   await check('Actual popup switch resumes automatic translation', async () => {
-    await popup.evaluate('document.querySelector("#auto").click()');
+    await popup.evaluate('document.querySelector("#auto-on").click()');
     await page.waitForSelector('#hero > [data-pr-owned]', { timeout: 30000 });
     await options.waitForFunction(async () => (await chrome.storage.local.get('settings')).settings.autoTranslate === true);
   });

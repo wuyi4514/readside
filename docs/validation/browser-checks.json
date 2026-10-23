@@ -4,117 +4,162 @@
     {
       "name": "Local models available in installed extension",
       "status": "passed",
-      "ms": 27
+      "ms": 28
     },
     {
       "name": "Enable switch persists to extension storage",
       "status": "passed",
-      "ms": 15
+      "ms": 5
     },
     {
       "name": "Automatic real translation on strict-CSP page",
       "status": "passed",
-      "ms": 867
+      "ms": 960
     },
     {
       "name": "Cards receive separate title and paragraph translations",
       "status": "passed",
-      "ms": 20
+      "ms": 17
     },
     {
       "name": "French, Spanish, Chinese and protected content are untouched",
       "status": "passed",
-      "ms": 23
+      "ms": 34
     },
     {
       "name": "Inline nodes, links and original text remain intact",
       "status": "passed",
-      "ms": 8
+      "ms": 6
+    },
+    {
+      "name": "New opt-outs, editable roles and controls remove existing translations",
+      "status": "passed",
+      "ms": 1025
+    },
+    {
+      "name": "Changed local language evidence invalidates and then restores the block",
+      "status": "passed",
+      "ms": 333
     },
     {
       "name": "Dynamically added paragraph is automatically translated",
       "status": "passed",
-      "ms": 103
+      "ms": 293
     },
     {
       "name": "Updated source receives a fresh translation",
       "status": "passed",
-      "ms": 152
+      "ms": 241
     },
     {
       "name": "Dark mode maintains readable translation contrast",
       "status": "passed",
-      "ms": 363
+      "ms": 360
     },
     {
       "name": "Narrow desktop does not create horizontal overflow",
       "status": "passed",
-      "ms": 305
+      "ms": 304
     },
     {
       "name": "Select a real word and look up its real local translation",
       "status": "passed",
-      "ms": 274
+      "ms": 250
     },
     {
       "name": "Generic blocks keep main and quoted posts separate (feed fixture)",
       "status": "passed",
-      "ms": 391
+      "ms": 441
     },
     {
       "name": "200 recycled post updates keep only the final text translation",
       "status": "passed",
-      "ms": 192
+      "ms": 194
     },
     {
       "name": "New wrapper tags and unrelated attributes do not break extraction",
       "status": "passed",
-      "ms": 167
+      "ms": 165
     },
     {
       "name": "Whole-card links preserve their original accessible name",
       "status": "passed",
-      "ms": 206
+      "ms": 204
+    },
+    {
+      "name": "Partially visible carousel cards translate within their own text bounds",
+      "status": "passed",
+      "ms": 387
+    },
+    {
+      "name": "Layout-protected content retries when the container expands",
+      "status": "passed",
+      "ms": 301
+    },
+    {
+      "name": "Column-layout headings receive one complete translation",
+      "status": "passed",
+      "ms": 3
     },
     {
       "name": "Restore current page removes translations and pauses new content",
       "status": "passed",
-      "ms": 689
+      "ms": 676
     },
     {
       "name": "Global off clears every reachable document",
       "status": "passed",
-      "ms": 914
+      "ms": 420
     },
     {
       "name": "Manual translation works with global automatic translation off",
       "status": "passed",
-      "ms": 808
+      "ms": 799
     },
     {
       "name": "Service worker termination preserves settings and automatic operation",
       "status": "passed",
-      "ms": 553
+      "ms": 625
+    },
+    {
+      "name": "Empty website settings stay hidden",
+      "status": "passed",
+      "ms": 23
+    },
+    {
+      "name": "Selected-site mode prevents automatic work despite broad test permissions",
+      "status": "passed",
+      "ms": 816
+    },
+    {
+      "name": "Current-site permission action enables the selected site",
+      "status": "passed",
+      "ms": 295
+    },
+    {
+      "name": "Removing the last allowed site removes its empty settings section",
+      "status": "passed",
+      "ms": 92
     },
     {
       "name": "Actual extension action popup addresses the active page",
       "status": "passed",
-      "ms": 2
+      "ms": 1
     },
     {
       "name": "Actual popup restore removes current-page translations",
       "status": "passed",
-      "ms": 4
+      "ms": 8
     },
     {
       "name": "Actual popup translates the current page",
       "status": "passed",
-      "ms": 189
+      "ms": 289
     },
     {
       "name": "Actual popup switch stops and persists automatic translation",
       "status": "passed",
-      "ms": 15
+      "ms": 17
     },
     {
       "name": "Actual popup switch resumes automatic translation",

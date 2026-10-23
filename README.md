@@ -1,18 +1,20 @@
-# Parallel Read · 对照读
+# 伴读 · Readside
 
 Read the English web, with quiet Chinese translations below the original.
 
 保留英文原文，在标题和段落下显示轻量中文译文。看懂网站，也在阅读中学习英语。
 
-**当前版本：`0.1.0-preview.1` 开发预览。** 已实现 Chrome 插件并通过本地模型和真实网页验证；完整首版验收尚未完成。请先在自己的常用网页试用，具体证据和限制见[验证报告](docs/VALIDATION.md)。
+**当前版本：`0.1.1-preview.2` 开发预览。** 已实现 Chrome 插件并通过本地模型和真实网页验证；完整首版验收尚未完成。请先在自己的常用网页试用，具体证据和限制见[验证报告](docs/VALIDATION.md)。
 
-[下载构建包](https://github.com/wuyi4514/parallel-read/releases/tag/v0.1.0-preview.1) · [中文安装说明](docs/INSTALL.md) · [反馈问题](https://github.com/wuyi4514/parallel-read/issues)
+[下载构建包](https://github.com/wuyi4514/parallel-read/releases/tag/v0.1.1-preview.2) · [中文安装说明](docs/INSTALL.md) · [反馈问题](https://github.com/wuyi4514/parallel-read/issues)
 
-![原创测试页面上的实际对照翻译](docs/images/reader.png)
+![新版设置界面](docs/images/settings.png)
+
+本次更新修复横向轮播和动态展开区域的漏翻，支持纵向排列的文字标题；重做了设置与弹窗，移除装饰文案，采用清楚的单选项和统一文字层级。
 
 ## 已实现
 
-- 自动对照开关、当前页翻译和恢复原文、按网站设置规则。
+- 自动翻译开关、所有网站／单独允许的网站两种范围、当前页翻译和恢复原文。
 - 标题和正文分块对应；译文较小、较轻，保留原始节点、链接和交互。
 - 默认仅翻译英语到简体中文；逐块检测语言，同页法语、西语等不随英文一并翻译。
 - 可选择英语、法语、西班牙语、德语、日语、韩语作为源语言，具体可用性由设备检测；目标目前固定简体中文。
@@ -29,7 +31,7 @@ Read the English web, with quiet Chinese translations below the original.
 
 当前实测 Chrome 155 / macOS。Manifest 基线为 Chrome 138，仍需设备、策略、存储空间与语言方向检查；其他 Chrome 版本、系统和浏览器尚未完成验证。主要支持 HTTPS；PDF、图片、视频、跨域 iframe 和封闭 Shadow DOM 不覆盖。
 
-表单、编辑器、隐藏内容和标准聊天日志区域排除。通用 DOM 规则不能识别所有私密页面，敏感网站可关闭自动翻译。正文和译文仅保留有限内存缓存，网站规则存本机，详见[隐私说明](PRIVACY.md)。
+表单、编辑器、隐藏内容和标准聊天日志区域排除。通用 DOM 规则不能识别所有私密页面，访问敏感网站时可关闭自动翻译，或只授权常用网站。正文和译文仅保留有限内存缓存，网站规则存本机，详见[隐私说明](PRIVACY.md)。
 
 ## 从源码构建
 

@@ -23,7 +23,7 @@ for (const [from, to] of [['docs/INSTALL.md', 'INSTALL.md'], ['LICENSE', 'LICENS
 }
 if (!files['manifest.json']) throw new Error('Missing manifest at archive root');
 const directory = path.join(root, 'releases'); await mkdir(directory, { recursive: true });
-const name = `parallel-read-${pkg.version}.zip`;
+const name = `${pkg.name}-${pkg.version}.zip`;
 const archive = zipSync(files, { level: 9 });
 await writeFile(path.join(directory, name), archive);
 const checksum = createHash('sha256').update(archive).digest('hex');

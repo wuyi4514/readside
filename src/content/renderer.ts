@@ -9,7 +9,8 @@ export function safeContainer(element: HTMLElement): boolean {
   const cell = element.closest('td,th');
   if (cell && (cell.getBoundingClientRect().width < 320 || !element.matches('p,h1,h2,h3,h4,h5,h6,blockquote'))) return false;
   const own = getComputedStyle(element);
-  if (['flex', 'inline-flex', 'grid', 'inline-grid', 'table', 'table-row', 'table-cell'].includes(own.display)) return false;
+  if (['flex', 'inline-flex'].includes(own.display) && own.flexDirection !== 'column') return false;
+  if (['grid', 'inline-grid', 'table', 'table-row', 'table-cell'].includes(own.display)) return false;
   for (let node: HTMLElement | null = element, i = 0; node && i < 5; node = node.parentElement, i++) {
     const style = getComputedStyle(node);
     if ((style.webkitLineClamp && style.webkitLineClamp !== 'none' && style.webkitLineClamp !== '0') || ['absolute', 'fixed'].includes(style.position)) return false;
@@ -25,7 +26,7 @@ function setStyle(node: HTMLElement, values: Record<string, string>): void {
 export function styleTranslation(node: HTMLElement, source: HTMLElement, settings: Settings): void {
   const style = getComputedStyle(source);
   const originalSize = parseFloat(style.fontSize) || 16;
-  const title = source.matches('h1,h2,h3,h4,h5,h6,[role="heading"]');
+  const title = source.matches('h1,h2,h3,h4,h5,h6,[role="heading"]') || originalSize >= 24;
   const size = title ? Math.max(settings.minimumTranslationFontPx, Math.min(18, originalSize * 0.72)) : Math.max(settings.minimumTranslationFontPx, originalSize * settings.translationScale);
   const foreground = parseColor(style.color) ?? [32, 37, 33];
   setStyle(node, {
@@ -40,9 +41,12 @@ export function styleTranslation(node: HTMLElement, source: HTMLElement, setting
   });
 }
 
-export function layoutFits(source: HTMLElement, translation: HTMLElement): boolean {
+export function layoutFits(source: HTMLElement, translation: HTMLElement, documentWidth = Math.max(innerWidth, document.documentElement.scrollWidth)): boolean {
   const rect = translation.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0 || rect.right > innerWidth + 2) return false;
+  const sourceRect = source.getBoundingClientRect();
+  // A carousel can intentionally extend past the viewport. Translation must fit
+  // its text container, rather than requiring the entire card to be onscreen.
+  if (rect.width <= 0 || rect.height <= 0 || rect.left < sourceRect.left - 2 || rect.right > sourceRect.right + 2) return false;
   for (let node: HTMLElement | null = source, i = 0; node && i < 5; node = node.parentElement, i++) {
     const style = getComputedStyle(node), outer = node.getBoundingClientRect();
     if (['hidden', 'clip'].includes(style.overflowY) && (rect.bottom > outer.bottom + 1 || node.scrollHeight > node.clientHeight + 1)) return false;
@@ -52,7 +56,17 @@ export function layoutFits(source: HTMLElement, translation: HTMLElement): boole
       if (rect.bottom > sibling.top + 1 && rect.top < sibling.bottom && rect.right > sibling.left && rect.left < sibling.right) return false;
     }
   }
-  return document.documentElement.scrollWidth <= Math.max(innerWidth, document.documentElement.clientWidth) + 2;
+  return document.documentElement.scrollWidth <= documentWidth + 2;
+}
+
+export function layoutFingerprint(source: HTMLElement): string {
+  const parts: Array<string | number> = [innerWidth];
+  for (let node: HTMLElement | null = source, i = 0; node && i < 5; node = node.parentElement, i++) {
+    const style = getComputedStyle(node), rect = node.getBoundingClientRect();
+    parts.push(Math.round(rect.left), Math.round(rect.width), Math.round(rect.height), node.clientHeight, node.scrollHeight,
+      style.display, style.position, style.overflowY, style.webkitLineClamp);
+  }
+  return parts.join('|');
 }
 
 export function renderTranslation(source: HTMLElement, text: string, settings: Settings): HTMLElement | null {
@@ -62,7 +76,8 @@ export function renderTranslation(source: HTMLElement, text: string, settings: S
   // Keep an existing whole-card link's accessible name identical to its original.
   if (source.closest('a,[role="link"]')) translation.setAttribute('aria-hidden', 'true');
   translation.textContent = text; styleTranslation(translation, source, settings);
+  const documentWidth = Math.max(innerWidth, document.documentElement.scrollWidth);
   source.append(translation);
-  if (!layoutFits(source, translation)) { translation.remove(); return null; }
+  if (!layoutFits(source, translation, documentWidth)) { translation.remove(); return null; }
   return translation;
 }

@@ -19,15 +19,32 @@
       "name": "github",
       "url": "https://github.com/features",
       "title": "GitHub Features · GitHub",
-      "translations": 8,
+      "translations": 2,
       "overflow": false
     },
     {
       "name": "x-public",
       "url": "https://x.com/OpenAI",
       "title": "OpenAI (@OpenAI) / X",
-      "translations": 5,
+      "translations": 3,
       "overflow": false
+    },
+    {
+      "name": "granola",
+      "url": "https://www.granola.ai/",
+      "title": "Granola — The AI Notepad for back-to-back meetings",
+      "translations": 7,
+      "overflow": false,
+      "quotes": [
+        {
+          "translated": true,
+          "fontSize": "18px"
+        },
+        {
+          "translated": true,
+          "fontSize": "18px"
+        }
+      ]
     }
   ]
 }

@@ -12,7 +12,7 @@ vi.mock('../src/providers/local', async importOriginal => ({
   },
 }));
 vi.mock('../src/content/renderer', () => ({
-  safeContainer: () => true, layoutFits: () => true, styleTranslation: () => {},
+  layoutFingerprint: () => 'stable', safeContainer: () => true, layoutFits: () => true, styleTranslation: () => {},
   renderTranslation: (source: HTMLElement, text: string) => { const node = document.createElement('span'); node.dataset.prOwned = 'translation'; node.textContent = text; source.append(node); return node; },
 }));
 import { Controller } from '../src/content/controller';
@@ -26,8 +26,9 @@ beforeEach(() => {
   vi.stubGlobal('isSecureContext', true);
   vi.stubGlobal('innerHeight', 1000); vi.stubGlobal('innerWidth', 1200);
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} });
-  vi.stubGlobal('chrome', { runtime: { sendMessage: vi.fn(async (message: { type: string }) => message.type === 'PR_GET_SETTINGS' ? { settings: { ...DEFAULT_SETTINGS, autoTranslate: true, settingsVersion: 2 }, autoAllowed: true } : undefined) } });
+  vi.stubGlobal('chrome', { runtime: { sendMessage: vi.fn(async (message: { type: string }) => message.type === 'PR_GET_SETTINGS' ? { settings: { ...DEFAULT_SETTINGS, autoTranslate: true, autoTranslateAllPages: true, settingsVersion: 2 }, autoAllowed: true } : undefined) } });
   vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 600, height: 60, top: 100, bottom: 160, left: 0, right: 600, x: 0, y: 100, toJSON() {} });
   document.body.innerHTML = `<p id="source">${original}</p>`;

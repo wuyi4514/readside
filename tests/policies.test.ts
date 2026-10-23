@@ -14,7 +14,7 @@ describe('settings and rules', () => {
     expect(shouldAutoTranslate(s, 'https://example.com', true)).toBe(false);
   });
   it('site exceptions do not silently cover subdomains', () => {
-    const s = sanitizeSettings({ ...DEFAULT_SETTINGS, autoTranslate: true, siteRules: { 'https://example.com': 'never' } });
+    const s = sanitizeSettings({ ...DEFAULT_SETTINGS, autoTranslate: true, autoTranslateAllPages: true, siteRules: { 'https://example.com': 'never' } });
     expect(shouldAutoTranslate(s, 'https://example.com')).toBe(false);
     expect(shouldAutoTranslate(s, 'https://blog.example.com')).toBe(true);
   });
@@ -24,7 +24,23 @@ describe('settings and rules', () => {
   });
 });
 
-describe('bounded local cache', () => {
+describe('automatic translation scope', () => {
+  it('only runs at an explicitly allowed origin when all-sites mode is off', () => {
+    const settings = sanitizeSettings({ ...DEFAULT_SETTINGS, autoTranslate: true, autoTranslateAllPages: false, siteRules: { 'https://example.com': 'always' } });
+    expect(shouldAutoTranslate(settings, 'https://example.com')).toBe(true);
+    expect(shouldAutoTranslate(settings, 'https://other.example')).toBe(false);
+    settings.autoTranslateAllPages = true;
+    expect(shouldAutoTranslate(settings, 'https://other.example')).toBe(true);
+    settings.autoTranslate = false;
+    expect(shouldAutoTranslate(settings, 'https://example.com')).toBe(false);
+  });
+  it('preserves the old scope on upgrade while fresh installations start with explicit access', () => {
+    expect(sanitizeSettings(DEFAULT_SETTINGS).autoTranslateAllPages).toBe(false);
+    expect(sanitizeSettings({ schemaVersion: 1, autoTranslate: true }).autoTranslateAllPages).toBe(true);
+  });
+});
+
+describe('bounded local cache' , () => {
   it('evicts the least recently used text rather than the most recently read', () => {
     const cache = new TextCache<string>(2,1000); cache.set('first','one'); cache.set('second','two'); cache.get('first'); cache.set('third','three');
     expect(cache.get('second')).toBeUndefined(); expect(cache.get('first')).toBe('one');
@@ -82,6 +98,16 @@ describe('generic content ownership', () => {
     const before = entryKey(text);
     document.querySelector('a')!.setAttribute('href','/notes/43');
     expect(entryKey(text)).not.toBe(before);
+    document.body.replaceChildren();
+  });
+});
+
+
+describe('text columns', () => {
+  it('extracts one complete text block instead of translating each visual line twice', () => {
+    document.body.innerHTML = '<div id="text-column" style="display:flex;flex-direction:column"><span style="display:block">Reading helps people discover new ideas.</span><span style="display:block">It also gives us a chance to understand one another.</span></div>';
+    const found = [...candidates(document.body)];
+    expect(found).toHaveLength(1); expect(found[0]?.id).toBe('text-column');
     document.body.replaceChildren();
   });
 });

@@ -1,8 +1,8 @@
 {
-  "name": "parallel-read",
-  "version": "0.1.0-preview.1",
+  "name": "readside",
+  "version": "0.1.1-preview.2",
   "private": true,
-  "description": "Quiet bilingual reading for the English web",
+  "description": "Bilingual webpage reading with original text and translation",
   "license": "MIT",
   "type": "module",
   "engines": {

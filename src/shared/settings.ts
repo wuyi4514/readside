@@ -13,6 +13,7 @@ export interface Settings {
   schemaVersion: 1;
   settingsVersion: number;
   autoTranslate: boolean;
+  autoTranslateAllPages: boolean;
   sourceLanguage: SourceLanguage;
   targetLanguage: 'zh-CN';
   provider: 'chrome-local';
@@ -24,6 +25,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   schemaVersion: 1, settingsVersion: 1, autoTranslate: false,
+  autoTranslateAllPages: false,
   sourceLanguage: 'en', targetLanguage: 'zh-CN', provider: 'chrome-local',
   selectionLookup: true, translationScale: 0.85, minimumTranslationFontPx: 12,
   siteRules: {},
@@ -52,6 +54,7 @@ export function sanitizeSettings(value: unknown): Settings {
     ...DEFAULT_SETTINGS,
     settingsVersion: Number.isSafeInteger(v.settingsVersion) && Number(v.settingsVersion) > 0 ? Number(v.settingsVersion) : 1,
     autoTranslate: schemaOk && v.autoTranslate === true,
+    autoTranslateAllPages: v.autoTranslateAllPages === true || (v.autoTranslateAllPages === undefined && v.schemaVersion === 1),
     sourceLanguage: LANGUAGES.some(l => l.code === v.sourceLanguage) ? v.sourceLanguage as SourceLanguage : 'en',
     selectionLookup: v.selectionLookup !== false,
     translationScale: typeof v.translationScale === 'number' ? Math.min(1, Math.max(0.75, v.translationScale)) : 0.85,
@@ -61,7 +64,8 @@ export function sanitizeSettings(value: unknown): Settings {
 }
 
 export function shouldAutoTranslate(settings: Settings, origin: string, paused = false): boolean {
-  return settings.autoTranslate && !paused && settings.siteRules[origin] !== 'never';
+  return settings.autoTranslate && !paused && settings.siteRules[origin] !== 'never'
+    && (settings.autoTranslateAllPages || settings.siteRules[origin] === 'always');
 }
 
 export function settingsChangeRequiresReset(previous: Settings, next: Settings): boolean {

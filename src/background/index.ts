@@ -100,6 +100,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
     if (!status || typeof status.state !== 'string') return;
     const text = status.state === 'working' ? '·' : ['needs-download', 'unsupported'].includes(status.state) ? '!' : '';
     void chrome.action.setBadgeText({ tabId: sender.tab.id, text }).catch(() => undefined);
-    void chrome.action.setBadgeBackgroundColor({ tabId: sender.tab.id, color: '#254f43' }).catch(() => undefined);
+    void chrome.action.setBadgeBackgroundColor({ tabId: sender.tab.id, color: '#25272c' }).catch(() => undefined);
   }
 });

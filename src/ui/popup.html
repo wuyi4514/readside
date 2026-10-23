@@ -1,18 +1,17 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>对照读</title><link rel="stylesheet" href="ui.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>伴读 · Readside</title><link rel="stylesheet" href="ui.css"></head>
 <body class="popup">
-  <header class="popup-head"><div class="brand"><img src="icons/48.png" width="30" height="30" alt=""><div><strong>对照读</strong><span>PARALLEL READ</span></div></div><button class="icon-button" id="settings" title="阅读设置" aria-label="打开阅读设置">⚙</button></header>
+  <header class="popup-head"><div class="brand"><img src="icons/48.png" width="32" height="32" alt=""><strong>伴读 <span>Readside</span></strong></div><button class="icon-button" id="settings" title="设置" aria-label="打开设置"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m9.5 3-.6 2.2-1.8 1-2.2-.5-2.5 4.4L4 11.7v2L2.4 15l2.5 4.3 2.2-.5 1.8 1 .6 2.2h5l.6-2.2 1.8-1 2.2.5 2.5-4.3-1.6-1.4v-2l1.6-1.5-2.5-4.4-2.2.5-1.8-1L14.5 3Z" transform="translate(0 -1) scale(1 .95)"/><circle cx="12" cy="11.5" r="3"/></svg></button></header>
   <main>
-    <section class="master-row"><div><h1>自动对照</h1><p>读英文，有中文相伴。</p></div><button id="auto" class="switch" role="switch" aria-checked="false" aria-label="自动翻译"><span></span></button></section>
     <div class="page-status" id="status" role="status"><span class="status-dot"></span><span id="status-text">正在连接…</span></div>
-    <button id="retry" class="text-button" hidden>重试未完成内容</button>
-    <section class="language-row" aria-label="翻译语言"><label><span class="field-label">仅翻译此语言</span><select id="source" aria-label="仅翻译此语言"></select></label><span class="language-arrow" aria-hidden="true">→</span><div><span class="field-label">译为</span><span class="target-label">简体中文</span></div></section>
-    <div class="page-actions"><button id="translate" class="button primary">翻译当前页 <span aria-hidden="true">↗</span></button><button id="restore" class="button secondary">恢复原文</button></div>
+    <button id="retry" class="button secondary small" hidden>重试未完成内容</button>
+    <fieldset class="choice-row automatic-choice" id="auto-controls" disabled><legend>自动翻译</legend><div class="radio-options"><label><input id="auto-on" name="auto" type="radio" value="on">开启</label><label><input id="auto-off" name="auto" type="radio" value="off">关闭</label></div></fieldset>
+    <section class="language-row" aria-label="翻译语言"><label><span class="field-label">源语言</span><select id="source" aria-label="仅翻译此语言"></select></label><span class="language-arrow" aria-hidden="true">→</span><div><span class="field-label">目标语言</span><span class="static-field">简体中文</span></div></section>
+    <div class="page-actions"><button id="translate" class="button primary">翻译当前页</button><button id="restore" class="button secondary">恢复原文</button></div>
+    <button id="allow-site" class="button secondary full" hidden>允许此网站自动翻译</button>
+    <fieldset class="choice-row selection-choice"><legend>选词查译</legend><div class="radio-options"><label><input id="selection-on" name="selection" type="radio" value="on">开启</label><label><input id="selection-off" name="selection" type="radio" value="off">关闭</label></div></fieldset>
     <p id="message" class="message" role="status" hidden></p>
-    <div class="site-row"><div><span class="field-label">此网站</span><span id="site" class="site-name">当前页面</span></div><select id="site-rule" aria-label="此网站的自动翻译规则"><option value="follow-global">跟随全局</option><option value="always">始终翻译</option><option value="never">不自动翻译</option></select></div>
-    <div class="selection-row"><label for="selection">选择词句后查译</label><input type="checkbox" id="selection" class="checkbox"></div>
   </main>
-  <footer class="popup-footer"><span>原文保留 · 本地翻译</span><button id="options" class="text-button">阅读设置 <span aria-hidden="true">↗</span></button></footer>
   <script type="module" src="popup.js"></script>
 </body></html>
