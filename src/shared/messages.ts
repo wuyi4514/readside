@@ -22,6 +22,7 @@ export type Message =
   | { type: 'PR_RETRY' }
   | { type: 'PR_CLEAR_CACHE' }
   | { type: 'PR_MODELS_READY' }
+  | { type: 'PR_ONLINE' | 'PR_ONLINE_CANCEL'; request: string; op?: 'detect' | 'translate'; provider?: string; source?: string; target?: string; text?: string }
   | { type: 'PR_NATIVE' | 'PR_NATIVE_CANCEL'; request: string; client: string; op?: string; source?: string; target?: string; text?: string };
 
 export async function loadSettings(): Promise<Settings> {

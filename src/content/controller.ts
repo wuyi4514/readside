@@ -1,9 +1,10 @@
+import { isCandidate, restoreSourceRuns } from './extractor';
 import { apiLanguage, DEFAULT_SETTINGS, settingsChangeRequiresReset, shouldAutoTranslate, type Settings } from '../shared/settings';
 import { EMPTY_STATUS, type PageStatus } from '../shared/messages';
 import { EngineError } from '../providers/local';
 import { DocumentEngine } from '../providers/pool';
 import { candidates, contextFor, entryKey, excludedFromTranslation, nearViewport, OWNED, readingRoot, sourceLanguageHint, sourceText } from './extractor';
-import { sentences, selectedSegments } from './language';
+import { letterCount, sentences, selectedSegments } from './language';
 import { layoutFingerprint, layoutFits, renderTranslation, safeContainer, styleTranslation } from './renderer';
 import { SelectionLookup } from './selection';
 
@@ -35,7 +36,7 @@ export class Controller {
   private scanning = false;
   private pumping = new Set<number>();
   private route = location.pathname + location.search;
-  private engine = new DocumentEngine(this.settings.targetLanguage);
+  private engine = new DocumentEngine(this.settings.targetLanguage, this.settings.provider);
   private engineError?: string;
   private missingLanguages = new Set<string>();
   private contextAlive = true;
@@ -141,8 +142,8 @@ export class Controller {
     clearTimeout(this.scanTimer); this.scanTimer = 0; clearInterval(this.routeTimer);
     this.roots.clear();
     for (const block of this.blocks.values()) block.translation?.remove();
-    this.blocks.clear(); this.lookup.close();
-    this.engine.dispose(); this.engine = new DocumentEngine(this.settings.targetLanguage);
+    this.blocks.clear(); restoreSourceRuns(); this.lookup.close();
+    this.engine.dispose(); this.engine = new DocumentEngine(this.settings.targetLanguage, this.settings.provider);
     this.engineError = undefined; this.missingLanguages.clear(); this.report();
   }
 
@@ -171,7 +172,7 @@ export class Controller {
     const roots = this.roots.size > 12 || this.roots.has(document.body) ? [document.body] : [...this.roots];
     this.roots.clear();
     try {
-      for (const [element, block] of this.blocks) if (!element.isConnected || excludedFromTranslation(element)) {
+      for (const [element, block] of this.blocks) if (!element.isConnected || excludedFromTranslation(element) || !isCandidate(element)) {
         block.translation?.remove(); this.unwatchLayout(block); this.intersection.unobserve(element); this.blocks.delete(element);
       }
       let count = 0;
@@ -202,6 +203,7 @@ export class Controller {
 
   private current(block: Block, generation: number, revision: number): boolean {
     return this.running && this.generation === generation && block.revision === revision && !this.abort.signal.aborted
+      && this.blocks.get(block.element) === block && isCandidate(block.element)
       && block.element.isConnected && block.text === sourceText(block.element) && block.entry === entryKey(block.element)
       && !excludedFromTranslation(block.element) && block.hint === sourceLanguageHint(block.element)
       && this.wantsRun();
@@ -222,13 +224,14 @@ export class Controller {
           const hint = sourceLanguageHint(block.element);
           if (hint && !this.settings.sourceLanguages.some(source => apiLanguage(source) === hint)) { block.state = 'skipped'; block.skipReason = 'language'; continue; }
           if (!safeContainer(block.element)) { this.waitForLayout(block); continue; }
-          const segments = await selectedSegments(block.text, this.settings.sourceLanguages.filter(source => source !== this.settings.targetLanguage), engine, signal, contextFor(block.element));
+          const segments = await selectedSegments(block.text, this.settings.sourceLanguages.filter(source => source !== this.settings.targetLanguage), engine, signal, letterCount(block.text) < 160 ? contextFor(block.element) : '');
           if (!this.current(block, generation, revision)) continue;
           if (!segments.length) { block.state = 'skipped'; block.skipReason = 'language'; continue; }
           const translated: string[] = []; block.incomplete = false;
           for (const segment of segments) {
             if (this.missingLanguages.has(segment.source)) { block.incomplete = true; continue; }
-            const chunks = segment.text.length <= 1800 ? [segment.text] : sentences(segment.text, segment.source).flatMap(s => s.match(/[\s\S]{1,800}/gu) ?? []);
+            const limit = this.settings.provider === 'google' ? 600 : 1800;
+            const chunks = segment.text.length <= limit ? [segment.text] : sentences(segment.text, segment.source).flatMap(s => s.match(new RegExp(`[\\s\\S]{1,${Math.min(limit, 800)}}`, 'gu')) ?? []);
             try {
               for (const chunk of chunks) translated.push(await engine.translate(chunk, segment.source, signal));
             } catch (error) {

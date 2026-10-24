@@ -29,3 +29,5 @@ button{appearance:none}
 @media(prefers-reduced-motion:reduce){.pack-circle.indeterminate{animation:none}.circle-fill{transition:none}}
 
 .pack-action.button[data-state=idle],.pack-action.button[data-state=checking],.pack-action.button[data-state=error]{width:auto;min-width:44px;height:28px;min-height:28px;padding:0 8px;border:1px solid color-mix(in srgb,var(--accent) 16%,transparent);border-radius:7px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}.pack-action[data-state=idle] .pack-symbol,.pack-action[data-state=checking] .pack-symbol,.pack-action[data-state=error] .pack-symbol{font-size:12px;font-weight:500;line-height:18px}.pack-action.button[data-state=idle]:hover:not(:disabled),.pack-action.button[data-state=error]:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 10%,var(--surface));border-color:color-mix(in srgb,var(--accent) 35%,transparent)}.pack-name{overflow-wrap:anywhere}
+
+.provider-field{margin:0 0 20px}.popup .provider-field{margin:18px 0}.provider-field .helper{font-size:12px;margin-top:8px}

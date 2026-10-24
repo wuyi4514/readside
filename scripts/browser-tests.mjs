@@ -8,14 +8,16 @@ const rootDir = path.resolve(import.meta.dirname, '..');
 const evidenceDir = path.join(rootDir, '.private/browser-evidence');
 await mkdir(evidenceDir, { recursive: true });
 const endpoint = process.env.PR_CDP_URL ?? 'http://127.0.0.1:9327';
-const browser = await chromium.connectOverCDP(endpoint);
+const browser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
 const context = browser.contexts()[0];
+// Keep isolated QA tabs rendering while the suite switches between them.
+context.on('page', page => { void context.newCDPSession(page).then(session => session.send('Emulation.setFocusEmulationEnabled', { enabled: true })).catch(() => undefined); });
 const cdp = await browser.newBrowserCDPSession();
 const results = [];
 const errors = [];
 const networks = new Set();
 const server = http.createServer(async (req, res) => {
-  const routes = { '/': 'reader.html', '/multilingual.html': 'multilingual.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/dynamic.html': 'dynamic.html', '/dynamic.css': 'dynamic.css', '/dynamic.js': 'dynamic.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
+  const routes = { '/coverage.html': 'coverage.html', '/coverage.css': 'coverage.css', '/coverage.js': 'coverage.js', '/': 'reader.html', '/multilingual.html': 'multilingual.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/dynamic.html': 'dynamic.html', '/dynamic.css': 'dynamic.css', '/dynamic.js': 'dynamic.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
   const file = routes[new URL(req.url, 'http://localhost').pathname];
   if (!file) { res.writeHead(404); res.end(); return; }
   const body = await readFile(path.join(rootDir, 'tests/fixtures', file));
@@ -130,7 +132,7 @@ try {
   await check('French, Spanish, Chinese and protected content are untouched', async () => {
     await page.locator('#mixed').scrollIntoViewIfNeeded();
     await page.waitForSelector('#mixed > [data-pr-owned="translation"]', { timeout: 30000 });
-    for (const selector of ['#french','#spanish','#chinese','#ignored','#compact','#draft','#hidden','nav','form']) assert.equal(await page.locator(`${selector} [data-pr-owned="translation"]`).count(), 0, selector);
+    for (const selector of ['#french','#spanish','#chinese','#ignored','#compact','#draft','#hidden']) assert.equal(await page.locator(`${selector} [data-pr-owned="translation"]`).count(), 0, selector);
   });
   await check('Inline nodes, links and original text remain intact', async () => {
     assert.equal(await page.locator('#emphasis').textContent(), 'focus on what matters');
@@ -138,9 +140,9 @@ try {
     assert.equal(await page.locator('#link-a').getAttribute('href'), '#details-a');
     assert.equal(await page.locator('#body-a').evaluate(node => node.childNodes[0].textContent), 'Bring your notes, plans, and projects together in one quiet space. Find the important details without losing the bigger picture.');
   });
-  await check('New opt-outs, editable roles and controls remove existing translations', async () => {
+  await check('New opt-outs and editable regions remove existing translations', async () => {
     await page.locator('#body-a').scrollIntoViewIfNeeded();
-    for (const [attribute, value] of [['translate', 'no'], ['contenteditable', 'true'], ['role', 'button']]) {
+    for (const [attribute, value] of [['translate', 'no'], ['contenteditable', 'true']]) {
       await page.locator('#body-a').evaluate((node, data) => node.setAttribute(data[0], data[1]), [attribute, value]);
       await page.waitForFunction(() => !document.querySelector('#body-a > [data-pr-owned]'));
       await page.locator('#body-a').evaluate((node, key) => node.removeAttribute(key), attribute);
@@ -197,7 +199,7 @@ try {
   await check('Generic blocks keep main and quoted posts separate (feed fixture)',async()=>{
     await timeline.waitForSelector('#post-text > [data-pr-owned]',{timeout:30000});
     await timeline.waitForSelector('#quote-text > [data-pr-owned]',{timeout:30000});
-    assert.equal(await timeline.locator('header [data-pr-owned],button [data-pr-owned],[contenteditable] [data-pr-owned]').count(),0);
+    assert.equal(await timeline.locator('[contenteditable] [data-pr-owned]').count(),0);
     assert.notEqual(await timeline.locator('#post-text > [data-pr-owned]').textContent(),await timeline.locator('#quote-text > [data-pr-owned]').textContent());
   });
   await check('200 recycled post updates keep only the final text translation',async()=>{
@@ -281,6 +283,21 @@ try {
   });
   await dynamicSession.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await dynamicSession.detach(); await dynamic.close();
   await page.bringToFront();
+  const coverage = await context.newPage();
+  await coverage.goto('http://127.0.0.1:9329/coverage.html');
+  await check('Full page reading includes tight navigation, controls, sidebar and table cells', async () => {
+    for (const selector of ['#news','#research','#pricing','#title','#story','#table-text']) await coverage.locator(selector + ' [data-pr-owned="translation"]').first().waitFor({ timeout: 30000 });
+    assert.equal(await coverage.locator('#french [data-pr-owned],#hidden [data-pr-owned],input [data-pr-owned],textarea [data-pr-owned],[contenteditable] [data-pr-owned]').count(), 0);
+    assert.equal(await coverage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2), true);
+    await coverage.locator('#research').click();
+    await coverage.waitForFunction(() => document.querySelector('#events').textContent.startsWith('Clicks: 1'));
+    assert.equal(await coverage.locator('#research svg').count(), 1);
+    await coverage.locator('#load').click();
+    assert.equal(await coverage.locator('#lazy [data-pr-owned]').count(), 0);
+    await coverage.locator('#lazy').scrollIntoViewIfNeeded();
+    await coverage.locator('#lazy h2 [data-pr-owned]').waitFor({ timeout: 30000 });
+    await coverage.locator('#lazy p [data-pr-owned]').waitFor({ timeout: 30000 });
+  });
   await check('Restore current page removes translations and pauses new content', async () => {
     const tabs = await options.evaluate(()=>chrome.tabs.query({}));
     const target = tabs.find(tab=>tab.url==='http://127.0.0.1:9329/');
@@ -445,7 +462,7 @@ try {
       await options.waitForFunction(async code => (await chrome.storage.local.get('settings')).settings.targetLanguage === code, targetCode);
       // The UI may require a first create at this extension origin even for cached models.
       for (const source of ['英语','简体中文']) {
-        const button = options.getByRole('button', { name: `准备${source} → ${targetLabel}`, exact: true }); if (await button.count() && await button.isEnabled()) await button.click();
+        const button = options.locator(`[data-language="${source === '英语' ? 'en' : 'zh-CN'}"] .pack-action`); if (await button.count() && await button.isEnabled() && await button.getAttribute('data-state') !== 'ready') await button.click();
       }
       const targetPage = await context.newPage(); await targetPage.goto('http://127.0.0.1:9329/multilingual.html'); await targetPage.bringToFront();
       await targetPage.locator(`#${sourceId}`).scrollIntoViewIfNeeded();

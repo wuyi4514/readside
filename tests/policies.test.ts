@@ -106,7 +106,7 @@ describe('generic content ownership', () => {
     document.body.innerHTML = '<article><header><div id="author">Someone who shares interesting ideas about the world</div><a rel="bookmark" href="/notes/42">Today</a></header><div id="text">A useful thought about reading and learning from the people around us.</div><button>Like 12</button></article>';
     const text = document.querySelector('#text')!;
     const found = [...candidates(document.body)];
-    expect(found).toContain(text); expect(found).not.toContain(document.querySelector('#author'));
+    expect(found).toContain(text); expect(found).toContain(document.querySelector('#author')); expect(found).toContain(document.querySelector('button'));
     const before = entryKey(text);
     document.querySelector('a')!.setAttribute('href','/notes/43');
     expect(entryKey(text)).not.toBe(before);
@@ -134,5 +134,38 @@ describe('composited reading backgrounds', () => {
     document.querySelector('div')!.style.background = 'rgba(255,255,255,.03)';
     expect(backgroundFor(document.querySelector('p')!)).toEqual([8,8,8]);
     document.body.replaceChildren();
+  });
+});
+
+describe('full visible text discovery', () => {
+  it('includes navigation, buttons, short labels and table cells without rewriting their children', async () => {
+    const { restoreSourceRuns } = await import('../src/content/extractor');
+    document.body.innerHTML = '<nav><a>News</a><button><span>Research</span><svg></svg></button></nav><div>Before<h2>Heading</h2>After</div><table><tbody><tr><td>Available</td></tr></tbody></table><input value="PRIVATE"><div hidden>SECRET</div>';
+    const button = document.querySelector('button')!, label = button.firstElementChild;
+    const all = [...candidates(document.body)].map(sourceText);
+    expect(all).toEqual(expect.arrayContaining(['News','Research','Before','Heading','After','Available']));
+    expect(all.join(' ')).not.toMatch(/PRIVATE|SECRET/);
+    expect(button.firstElementChild).toBe(label);
+    restoreSourceRuns(); expect(document.querySelector('[data-pr-source]')).toBeNull();
+    expect(document.body.textContent).toContain('BeforeHeadingAfter'); document.body.replaceChildren();
+  });
+  it('uses language evidence for short labels while rejecting a different detected language', async () => {
+    const detector = { detect: async (text: string) => [{detectedLanguage: text === 'Bonjour' ? 'fr' : 'en',confidence:.99}] };
+    const signal = new AbortController().signal;
+    expect(await selectedSegments('News',['en'],detector,signal)).toEqual([{text:'News',source:'en'}]);
+    expect(await selectedSegments('Bonjour',['en'],detector,signal)).toEqual([]);
+  });
+});
+
+describe('uncertain headings and script boundaries', () => {
+  it('uses an independent paragraph when a medium heading has uncertain language', async () => {
+    const heading = 'Harness design for long-running application development';
+    const context = 'Good evaluations help teams build reliable applications and understand the world.';
+    const detector = {detect:async(text:string)=>[{detectedLanguage:'en',confidence:text===heading?.5:.99}]};
+    expect(await selectedSegments(heading,['en'],detector,new AbortController().signal,context)).toEqual([{text:heading,source:'en'}]);
+  });
+  it('cannot infer a Latin source for Chinese text from an English context', async () => {
+    const detector={detect:async()=>[{detectedLanguage:'und',confidence:.5}]};
+    expect(await selectedSegments('这段中文应该保持原样',['en'],detector,new AbortController().signal,'Good evaluations help teams build reliable applications and understand the world.')).toEqual([]);
   });
 });

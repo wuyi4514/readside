@@ -3,7 +3,7 @@ import { apiLanguage, languageLabel, LANGUAGES, type Settings, type SourceLangua
 import { classify } from './language';
 import { SENSITIVE, sourceText } from './extractor';
 
-const CSS = `:host{all:initial;position:fixed;z-index:2147483647;display:block;color-scheme:light dark;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;color:#202124;line-height:1.65}*{box-sizing:border-box}button{font:inherit;cursor:pointer;border:0;border-radius:6px;padding:6px 10px;background:#25272c;color:#ffffff}button:focus-visible{outline:2px solid #3266e8;outline-offset:3px}.panel{width:min(320px,calc(100vw - 24px));padding:17px;background:#ffffff;box-shadow:0 4px 25px #10182826;border:1px solid #e6e8ec;border-radius:11px}.top{display:flex;justify-content:space-between;align-items:center;color:#666b74;font-size:10px;letter-spacing:.3px}.close{color:inherit;background:none;font-size:19px;padding:0 4px}.source{font-family:inherit;font-size:16px;margin:13px 0 8px;white-space:pre-wrap;max-height:150px;overflow:auto;overflow-wrap:anywhere}.result{font-size:13px;white-space:pre-wrap;max-height:210px;overflow:auto;margin-top:5px}.label{font-size:10px;color:#666b74;margin-top:12px}.actions{display:flex;gap:13px;align-items:center;margin-top:13px}.copy{padding:0;background:none;color:#25272c;font-size:11px}.note{font-size:10px;color:#666b74;margin-top:13px;border-top:1px solid #e6e8ec;padding-top:9px}.context{font-size:11px;color:#666b74;white-space:pre-wrap;margin-top:7px} @media(prefers-color-scheme:dark){:host{color:#eeeef0}.panel{background:#222428;border-color:#4b505b}.top,.label,.context,.note{color:#a4a9b3}.copy{color:#c5d5ff}.note{border-color:#363941}button{background:#ebedf2;color:#202228}.close{background:none;color:#a4a9b3}}`;
+const CSS = `:host{all:initial;position:fixed;z-index:2147483647;display:block;color-scheme:light dark;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;color:#202124;line-height:1.65}*{box-sizing:border-box}button{font:inherit;cursor:pointer;border:0;border-radius:6px;padding:6px 10px;background:#25272c;color:#ffffff}button:focus-visible{outline:2px solid #3266e8;outline-offset:3px}.panel{width:min(320px,calc(100vw - 24px));padding:17px;background:#ffffff;box-shadow:0 4px 25px #10182826;border:1px solid #e6e8ec;border-radius:11px}.top{display:flex;justify-content:space-between;align-items:center;color:#666b74;font-size:10px;letter-spacing:.3px}.close{color:inherit;background:none;font-size:19px;padding:0 4px}.source{font-family:inherit;font-size:16px;margin:13px 0 8px;white-space:pre-wrap;max-height:150px;overflow:auto;overflow-wrap:anywhere}.result{font-size:13px;white-space:pre-wrap;max-height:210px;overflow:auto;margin-top:5px}.label{font-size:10px;color:#666b74;margin-top:12px}.actions{display:flex;gap:13px;align-items:center;margin-top:13px}.copy{padding:0;background:none;color:#25272c;font-size:11px}.note{font-size:10px;color:#666b74;margin-top:13px;border-top:1px solid #e6e8ec;padding-top:9px} @media(prefers-color-scheme:dark){:host{color:#eeeef0}.panel{background:#222428;border-color:#4b505b}.top,.label,.note{color:#a4a9b3}.copy{color:#c5d5ff}.note{border-color:#363941}button{background:#ebedf2;color:#202228}.close{background:none;color:#a4a9b3}}`;
 
 export class SelectionLookup {
   private host?: HTMLElement;
@@ -80,7 +80,7 @@ export class SelectionLookup {
       button.addEventListener('click', () => { void navigator.clipboard.writeText(getText()).then(() => { button.textContent = '已复制'; }).catch(() => { button.textContent = '请选中文字复制'; }); }); actions.append(button);
     };
     copy('复制原文', () => this.text); copy('复制译文', () => this.translated);
-    const note = document.createElement('div'); note.className = 'note'; note.textContent = '机器翻译 · 仅在本地处理'; panel.append(note);
+    const note = document.createElement('div'); note.className = 'note'; note.textContent = this.settings().provider === 'chrome-local' ? '机器翻译 · 仅在本地处理' : `机器翻译 · ${this.settings().provider === 'google' ? 'Google' : 'Microsoft'}`; panel.append(note);
     this.root!.replaceChildren(this.root!.querySelector('style')!, panel); this.position();
     return panel;
   }
@@ -115,17 +115,6 @@ export class SelectionLookup {
       if (controller.signal.aborted || this.text !== text || this.abort !== controller) return;
       if (!this.selectionCurrent()) { this.close(); return; }
       this.translated = translated; result.textContent = translated;
-      if (this.context) {
-        const reference = document.createElement('button'); reference.className = 'copy'; reference.type = 'button'; reference.textContent = '查看原句参考';
-        reference.addEventListener('click', () => {
-          reference.disabled = true;
-          void this.engine().translate(this.context, source, controller.signal).then(value => {
-            if (controller.signal.aborted || this.abort !== controller) return;
-            if (!this.selectionCurrent()) { this.close(); return; }
-            const node = document.createElement('div'); node.className = 'context'; node.textContent = `原句参考\n${this.context}\n${value}`; reference.replaceWith(node); this.position();
-          }).catch(() => { reference.disabled = false; reference.textContent = '原句参考未完成，点击重试'; });
-        }); panel.querySelector('.note')!.before(reference);
-      }
       this.position();
     } catch (error) {
       if (!controller.signal.aborted) { result.textContent = error instanceof Error && error.message === 'needs_download' ? '需要先从阅读设置中准备语言包。' : '查译未完成，请稍后重试。'; this.position(); }

@@ -23,6 +23,7 @@ export async function readiness(source: string, target = 'zh-CN'): Promise<Avail
 
 export function errorText(error: unknown): string {
   if (error instanceof Error && error.name === 'AbortError') return '已取消。可以稍后继续准备。';
+  if (error instanceof Error && error.message === 'online_permission') return '未获得翻译服务的访问权限，设置未更改。';
   return '操作未完成。请检查网络和 Chrome 的本地翻译可用状态后重试。';
 }
 

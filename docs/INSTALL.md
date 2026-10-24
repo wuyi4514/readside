@@ -3,20 +3,24 @@
 ## 环境要求
 
 - 桌面版 Google Chrome 138 或更高版本。
-- 当前设备与浏览器策略允许使用 Chrome 内置翻译能力。
+- 本地模式要求设备与浏览器策略允许使用 Chrome 内置翻译能力；在线模式要求可连接 Google 或 Microsoft。
 - 首次准备语言包时需要网络连接和足够的本地存储空间。
 
 ## 安装 Readside
 
 1. 打开 [Releases](https://github.com/wuyi4514/readside/releases/latest)。
-2. 下载 `readside-0.2.5.zip`，解压到准备长期保留的目录。
+2. 下载 `readside-0.3.0.zip`，解压到准备长期保留的目录。
 3. 在 Chrome 地址栏输入 `chrome://extensions`，打开右上角的“开发者模式”。
 4. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
 5. 在 Chrome 扩展菜单中固定 Readside。
 
 GitHub 的 Source code 压缩包是源代码；安装时请使用名称以 `readside-` 开头的分发 ZIP。加载后请保留原目录的位置和文件。
 
-## 准备翻译方向
+## 选择翻译服务
+
+在设置或弹窗中选择 Chrome 本地翻译、Google 或 Microsoft。在线服务会请求对应主机的访问权限，并接收待翻译的文本，不需要下载语言包或填写 API Key。服务使用公开网页端点，可能受网络或服务商限流影响。
+
+## 准备本地翻译方向
 
 1. 点击 Readside 图标，再点击设置图标。
 2. 选择源语言与目标语言。源语言可多选，目标语言选择一种。

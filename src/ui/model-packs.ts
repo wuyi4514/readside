@@ -27,6 +27,7 @@ export class ModelPacks {
   constructor(private host: HTMLElement, private summary: HTMLElement, private changed: (ready: boolean) => void) {
     window.addEventListener('pagehide', () => { for (const pack of this.packs.values()) this.cancel(pack); });
   }
+  pause(): void { ++this.epoch; for (const pack of this.packs.values()) this.cancel(pack); }
   async setSources(sources: SourceLanguage[], target: TargetLanguage): Promise<void> {
     if (this.target !== target) {
       for (const [key, pack] of this.packs) if (key !== 'detector') { this.cancel(pack); this.packs.delete(key); this.cards.get(key)?.remove(); this.cards.delete(key); }

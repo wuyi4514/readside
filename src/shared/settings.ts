@@ -13,6 +13,16 @@ export type TargetLanguage = SourceLanguage;
 export const apiLanguage = (language: string): string => language === 'zh-CN' ? 'zh' : language;
 export const languageLabel = (language: string): string => LANGUAGES.find(l => l.code === language)?.label ?? language;
 export type SiteRule = 'follow-global' | 'always' | 'never';
+export const PROVIDERS = [
+  { code: 'chrome-local', label: 'Chrome 本地翻译' },
+  { code: 'google', label: 'Google' },
+  { code: 'microsoft', label: 'Microsoft' },
+] as const;
+export type Provider = (typeof PROVIDERS)[number]['code'];
+export const PROVIDER_ORIGINS: Record<Provider, string[]> = {
+  'chrome-local': [], google: ['https://translate.googleapis.com/*'],
+  microsoft: ['https://edge.microsoft.com/*'],
+};
 export interface Settings {
   schemaVersion: 2;
   settingsVersion: number;
@@ -20,7 +30,7 @@ export interface Settings {
   autoTranslateAllPages: boolean;
   sourceLanguages: SourceLanguage[];
   targetLanguage: TargetLanguage;
-  provider: 'chrome-local';
+  provider: Provider;
   selectionLookup: boolean;
   translationScale: number;
   minimumTranslationFontPx: 12 | 14 | 16;
@@ -63,6 +73,7 @@ export function sanitizeSettings(value: unknown): Settings {
     autoTranslateAllPages: v.autoTranslateAllPages === true || (v.autoTranslateAllPages === undefined && v.schemaVersion === 1),
     sourceLanguages: sourceLanguages.length ? sourceLanguages : ['en'],
     targetLanguage: LANGUAGES.some(l => l.code === v.targetLanguage) ? v.targetLanguage as TargetLanguage : 'zh-CN',
+    provider: PROVIDERS.some(p => p.code === v.provider) ? v.provider as Provider : 'chrome-local',
     selectionLookup: v.selectionLookup !== false,
     translationScale: typeof v.translationScale === 'number' ? Math.min(1, Math.max(0.75, v.translationScale)) : 0.85,
     minimumTranslationFontPx: [12, 14, 16].includes(Number(v.minimumTranslationFontPx)) ? Number(v.minimumTranslationFontPx) as 12 | 14 | 16 : 12,
@@ -76,5 +87,5 @@ export function shouldAutoTranslate(settings: Settings, origin: string, paused =
 }
 
 export function settingsChangeRequiresReset(previous: Settings, next: Settings): boolean {
-  return previous.sourceLanguages.join(',') !== next.sourceLanguages.join(',') || previous.targetLanguage !== next.targetLanguage;
+  return previous.provider !== next.provider || previous.sourceLanguages.join(',') !== next.sourceLanguages.join(',') || previous.targetLanguage !== next.targetLanguage;
 }

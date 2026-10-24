@@ -23,7 +23,7 @@ npm run build
 | --- | --- |
 | `src/background` | 设置、权限、脚本注册、引擎路由与工具栏状态 |
 | `src/content` | 内容提取、语言筛选、布局保护与词句查译 |
-| `src/providers` | 本地模型、后台文档、队列与会话 |
+| `src/providers` | 本地与在线引擎、后台文档、队列与会话 |
 | `src/shared` | 设置、消息和缓存合同 |
 | `src/ui` | 弹窗、设置与共享控件 |
 | `assets` | 品牌图标 |

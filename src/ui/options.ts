@@ -1,3 +1,4 @@
+import { providerSelect, providerReady, providerNote } from './provider';
 import { loadSettings, saveSettings } from '../shared/messages';
 import { DEFAULT_SETTINGS, LANGUAGES, sanitizeSettings, type Settings, type TargetLanguage, type SourceLanguage } from '../shared/settings';
 import { ModelPacks } from './model-packs';
@@ -22,8 +23,9 @@ const target = new ProductSelect(element('target'), { label: '目标语言', onC
   catch (error) { message(errorText(error), true); throw error; }
 } });
 target.setOptions([{ value: 'zh-CN', label: '简体中文' }, ...LANGUAGES.filter(l => l.code !== 'zh-CN').map(l => ({ value: l.code, label: l.label }))]);
+const provider = providerSelect(() => settings, update, refreshLanguages);
 const automatic = new AutomaticControls(() => settings, () => engineReady, update);
-const packs = new ModelPacks(element('language-packs'), element('engine-state'), ready => { engineReady = ready; automatic.render(); });
+const packs = new ModelPacks(element('language-packs'), element('engine-state'), ready => { if (settings.provider === 'chrome-local') { engineReady = ready; automatic.render(); } });
 
 async function refreshPermissions(): Promise<void> {
   const all = await chrome.permissions.contains({ origins: ['https://*/*'] });
@@ -52,18 +54,22 @@ element('clear-cache').addEventListener('click', () => {
 });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes.settings?.newValue) return;
-  const previousSource = settings.sourceLanguages.join(',') + '>' + settings.targetLanguage;
+  const previousSource = settings.provider + settings.sourceLanguages.join(',') + '>' + settings.targetLanguage;
   settings = sanitizeSettings(changes.settings.newValue); automatic.render(); renderRules(); setChoice('selection', settings.selectionLookup); font.setValues([String(settings.minimumTranslationFontPx)]); source.setValues(settings.sourceLanguages); target.setValues([settings.targetLanguage]);
-  if (previousSource !== settings.sourceLanguages.join(',') + '>' + settings.targetLanguage) void refreshLanguages();
+  if (previousSource !== settings.provider + settings.sourceLanguages.join(',') + '>' + settings.targetLanguage) void refreshLanguages();
   void refreshPermissions();
 });
 let languageEpoch = 0;
 async function refreshLanguages(): Promise<void> {
   const epoch = ++languageEpoch; const snapshot = settings;
-  target.setValues([snapshot.targetLanguage]); await populateLanguages(source, snapshot.sourceLanguages, snapshot.targetLanguage);
-  if (epoch !== languageEpoch) return; await packs.setSources(snapshot.sourceLanguages, snapshot.targetLanguage);
+  provider.setValues([snapshot.provider]); providerNote(snapshot);
+  target.setValues([snapshot.targetLanguage]); await populateLanguages(source, snapshot.sourceLanguages, snapshot.targetLanguage, snapshot.provider);
+  if (epoch !== languageEpoch) return;
+  const local = snapshot.provider === 'chrome-local'; element('language-packs').hidden = !local; element('engine-state').hidden = !local;
+  if (local) await packs.setSources(snapshot.sourceLanguages, snapshot.targetLanguage);
+  else { packs.pause(); engineReady = await providerReady(snapshot, async () => false); automatic.render(); }
 }
 void (async () => {
-  settings = await loadSettings(); automatic.render(); setChoice('selection', settings.selectionLookup); font.setValues([String(settings.minimumTranslationFontPx)]);
+  settings = await loadSettings(); provider.setValues([settings.provider]); providerNote(settings); automatic.render(); setChoice('selection', settings.selectionLookup); font.setValues([String(settings.minimumTranslationFontPx)]);
   renderRules(); await Promise.all([refreshLanguages(), refreshPermissions()]);
 })().catch(error => message(errorText(error), true));

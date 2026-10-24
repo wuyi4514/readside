@@ -1,3 +1,4 @@
+import { providerSelect, providerReady, providerNote } from './provider';
 import { EMPTY_STATUS, loadSettings, saveSettings, type Message, type PageStatus } from '../shared/messages';
 import { DEFAULT_SETTINGS, LANGUAGES, sanitizeSettings, validOrigin, type Settings, type TargetLanguage, type SourceLanguage } from '../shared/settings';
 import { element, errorText, message, optionsPage, anyLanguageReady } from './common';
@@ -11,7 +12,7 @@ let origin: string | null = null;
 let engineReady = false;
 const source = new ProductSelect(element('source'), { label: '源语言', multiple: true, onChange: async values => {
   try {
-    await update({ sourceLanguages: values as SourceLanguage[] }); engineReady = await anyLanguageReady(settings.sourceLanguages, settings.targetLanguage);
+    await update({ sourceLanguages: values as SourceLanguage[] }); engineReady = await providerReady(settings, () => anyLanguageReady(settings.sourceLanguages, settings.targetLanguage));
     if (!engineReady) message('所选翻译方向尚未就绪，请在设置中准备。'); await refresh();
   } catch (error) { message(errorText(error), true); throw error; }
 } });
@@ -20,6 +21,7 @@ const target = new ProductSelect(element('target'), { label: '目标语言', onC
   catch (error) { message(errorText(error), true); throw error; }
 } });
 target.setOptions([{ value: 'zh-CN', label: '简体中文' }, ...LANGUAGES.filter(l => l.code !== 'zh-CN').map(l => ({ value: l.code, label: l.label }))]);
+const provider = providerSelect(() => settings, update, refreshLanguages);
 const automatic = new AutomaticControls(() => settings, () => engineReady, update);
 
 function permissionPattern(): string | null {
@@ -83,18 +85,19 @@ onChoice('selection', enabled => { void update({ selectionLookup: enabled }).cat
 element('settings').addEventListener('click', optionsPage);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes.settings?.newValue) return;
-  const previousSource = settings.sourceLanguages.join(',') + '>' + settings.targetLanguage;
+  const previousSource = settings.provider + settings.sourceLanguages.join(',') + '>' + settings.targetLanguage;
   settings = sanitizeSettings(changes.settings.newValue); automatic.render(); setChoice('selection', settings.selectionLookup); source.setValues(settings.sourceLanguages); target.setValues([settings.targetLanguage]);
-  if (previousSource !== settings.sourceLanguages.join(',') + '>' + settings.targetLanguage) void refreshLanguages();
+  if (previousSource !== settings.provider + settings.sourceLanguages.join(',') + '>' + settings.targetLanguage) void refreshLanguages();
 });
 let languageEpoch = 0;
 async function refreshLanguages(): Promise<void> {
   const epoch = ++languageEpoch; const snapshot = settings;
-  target.setValues([snapshot.targetLanguage]); await populateLanguages(source, snapshot.sourceLanguages, snapshot.targetLanguage);
-  if (epoch !== languageEpoch) return; const ready = await anyLanguageReady(snapshot.sourceLanguages, snapshot.targetLanguage); if (epoch === languageEpoch) engineReady = ready;
+  provider.setValues([snapshot.provider]); providerNote(snapshot);
+  target.setValues([snapshot.targetLanguage]); await populateLanguages(source, snapshot.sourceLanguages, snapshot.targetLanguage, snapshot.provider);
+  if (epoch !== languageEpoch) return; const ready = await providerReady(snapshot, () => anyLanguageReady(snapshot.sourceLanguages, snapshot.targetLanguage)); if (epoch === languageEpoch) engineReady = ready;
 }
 void (async () => {
-  settings = await loadSettings(); [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); origin = validOrigin(tab?.url);
+  settings = await loadSettings(); provider.setValues([settings.provider]); providerNote(settings); [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); origin = validOrigin(tab?.url);
   automatic.render(); setChoice('selection', settings.selectionLookup); await refreshLanguages(); await refresh();
 })().catch(error => message(errorText(error), true));
 const poll = window.setInterval(() => { void refresh(); }, 1200);

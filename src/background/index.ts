@@ -3,6 +3,7 @@ import type { Message } from '../shared/messages';
 import { isExtensionUI } from '../shared/sender';
 import { nativeMessage } from './native-host';
 import { updateAction, forgetAction } from './action-icon';
+import { onlineMessage, cancelOnlineTab } from './online';
 
 const KEY = 'settings';
 // Persisted registration ID stays stable across brand changes.
@@ -74,10 +75,13 @@ chrome.permissions.onRemoved.addListener(() => {
   void register().then(async () => notify(await getSettings())).catch(() => undefined);
 });
 chrome.tabs.onRemoved.addListener(forgetAction);
+chrome.tabs.onRemoved.addListener(cancelOnlineTab);
+chrome.tabs.onUpdated.addListener((tabId, change) => { if (change.status === 'loading') cancelOnlineTab(tabId); });
 chrome.tabs.onActivated.addListener(() => { void injectActive(); });
 
 chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
   if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object') return;
+  if (['PR_ONLINE', 'PR_ONLINE_CANCEL'].includes(message.type)) return onlineMessage(message as unknown as Record<string, unknown>, sender, reply, getSettings);
   if (['PR_NATIVE', 'PR_NATIVE_CANCEL'].includes(message.type)) return nativeMessage(message as unknown as Record<string, unknown>, sender, reply);
   if (message.type === 'PR_GET_SETTINGS') {
     void getSettings().then(async settings => reply({ settings, autoAllowed: sender.tab ? await permitted(sender.url) : false })).catch(() => reply({ error: 'storage_error' }));

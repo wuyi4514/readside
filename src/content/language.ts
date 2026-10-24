@@ -15,23 +15,27 @@ export function classify(candidates: LanguageCandidate[], source: string): Langu
   return { result: language === source.split('-')[0] ? 'match' : 'non_match', language };
 }
 
-export async function languageGate(text: string, source: string, detector: LanguageDetector, signal: AbortSignal, context = ''): Promise<LanguageEvidence> {
+export async function languageGate(text: string, source: string, detector: LanguageDetector, signal: AbortSignal, context = '', shortLabels = false): Promise<LanguageEvidence> {
   if (letterCount(text) < 2 || /^(?:https?:\/\/|www\.|@)|^[\d\s\p{P}\p{S}]+$/u.test(text)) return { result: 'non_match' };
+  if (['en', 'fr', 'es', 'de'].includes(source)
+    && (text.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu)?.length ?? 0) > (text.match(/\p{Script=Latin}/gu)?.length ?? 0)) return { result: 'non_match' };
   const ranking = await detector.detect(text, signal);
   const evidence = classify(ranking, source);
   if (evidence.result === 'non_match') return evidence;
-  if (letterCount(text) >= 40) return evidence;
+  if (letterCount(text) >= 40 && evidence.result !== 'unknown') return evidence;
   // Medium multiword headings can be decisive without unrelated page context.
   if (letterCount(text) >= 24 && text.trim().split(/\s+/u).length >= 4 && evidence.result === 'match' && (ranking[0]?.confidence ?? 0) >= 0.98 && (ranking[0]!.confidence - (ranking[1]?.confidence ?? 0)) >= 0.8) return evidence;
-  // A short proper name or isolated word is never auto-assumed to be English.
-  if (source === 'en' && text.trim().split(/\s+/u).length < 3) return { result: 'unknown' };
+  // Short UI labels need contextual evidence; a decisive mismatch still wins.
+  if (!shortLabels && source === 'en' && text.trim().split(/\s+/u).length < 3) return { result: 'unknown' };
+  if (shortLabels && letterCount(text) < 40 && evidence.result === 'match' && (ranking[0]?.confidence ?? 0) >= .98) return evidence;
   if (!context || letterCount(context) < 40) return { result: 'unknown' };
   const parts = sentences(context, source).filter(p => letterCount(p) >= 20).slice(0, 6);
   if (!parts.length) return { result: 'unknown' };
+  let matches = 0;
   for (const part of parts) {
-    if (classify(await detector.detect(part, signal), source).result !== 'match') return { result: 'unknown' };
+    if (classify(await detector.detect(part, signal), source).result === 'match') matches++;
   }
-  return { result: 'match', language: source };
+  return matches / parts.length >= .8 ? { result: 'match', language: source } : { result: 'unknown' };
 }
 
 export async function translatableSegments(text: string, source: string, detector: LanguageDetector, signal: AbortSignal, context = ''): Promise<string[]> {
@@ -49,7 +53,7 @@ export async function selectedSegments(text: string, sources: readonly string[],
   const accepted: Array<{ text: string; source: string }> = [];
   for (const part of sentences(text, sources[0] ?? 'en')) {
     for (const source of sources) {
-      if ((await languageGate(part, source, detector, signal, letterCount(text) >= 40 ? text : context)).result === 'match') {
+      if ((await languageGate(part, source, detector, signal, context || (letterCount(text) >= 40 ? text : ''), true)).result === 'match') {
         accepted.push({ text: part, source }); break;
       }
     }
