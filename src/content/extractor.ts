@@ -55,6 +55,15 @@ function isCandidate(element: Element): element is HTMLElement {
   return sourceText(element).length >= 30;
 }
 
+/** A text-node mutation may arrive inside inline markup, below its reading block. */
+export function readingRoot(element: Element): Element {
+  for (let node: Element | null = element, i = 0; node && i < 6; node = node.parentElement, i++) {
+    if (isCandidate(node)) return node;
+    if (node.matches('body,html') || node.matches(EXCLUDED)) break;
+  }
+  return element;
+}
+
 export function* candidates(root: Element): Generator<HTMLElement> {
   if (root.closest(EXCLUDED)) return;
   if (isCandidate(root)) { yield root; return; }

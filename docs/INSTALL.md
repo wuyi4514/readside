@@ -9,7 +9,7 @@
 ## 安装 Readside
 
 1. 打开 [Releases](https://github.com/wuyi4514/readside/releases/latest)。
-2. 下载 `readside-0.2.4.zip`，解压到准备长期保留的目录。
+2. 下载 `readside-0.2.5.zip`，解压到准备长期保留的目录。
 3. 在 Chrome 地址栏输入 `chrome://extensions`，打开右上角的“开发者模式”。
 4. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
 5. 在 Chrome 扩展菜单中固定 Readside。

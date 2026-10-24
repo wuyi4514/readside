@@ -2,7 +2,7 @@ import { apiLanguage, DEFAULT_SETTINGS, settingsChangeRequiresReset, shouldAutoT
 import { EMPTY_STATUS, type PageStatus } from '../shared/messages';
 import { EngineError } from '../providers/local';
 import { DocumentEngine } from '../providers/pool';
-import { candidates, contextFor, entryKey, excludedFromTranslation, nearViewport, OWNED, sourceLanguageHint, sourceText } from './extractor';
+import { candidates, contextFor, entryKey, excludedFromTranslation, nearViewport, OWNED, readingRoot, sourceLanguageHint, sourceText } from './extractor';
 import { sentences, selectedSegments } from './language';
 import { layoutFingerprint, layoutFits, renderTranslation, safeContainer, styleTranslation } from './renderer';
 import { SelectionLookup } from './selection';
@@ -27,6 +27,8 @@ export class Controller {
   private scanTimer = 0;
   private statusTimer = 0;
   private layoutTimer = 0;
+  private colorFrame = 0;
+  private colorTransitions = new Map<Element, Set<string>>();
   private layoutTargets = new Map<Element, Set<Block>>();
   private layoutObserver = new ResizeObserver(() => this.scheduleLayoutCheck());
   private routeTimer = 0;
@@ -60,6 +62,23 @@ export class Controller {
       if (this.running) this.schedule(document.body);
     });
     this.theme.addEventListener('change', () => this.restyle());
+    // CSS :hover and :focus do not produce DOM mutations. Refresh only visible
+    // translations, including while the page animates its background colors.
+    for (const event of ['pointerover', 'pointerout', 'focusin', 'focusout']) document.addEventListener(event, () => this.scheduleColors(), true);
+    for (const event of ['transitionrun', 'transitionend', 'transitioncancel']) document.addEventListener(event, raw => {
+      const change = raw as TransitionEvent, target = change.target;
+      if (!(target instanceof Element) || target.closest(OWNED) || !/color|background|opacity/u.test(change.propertyName)) return;
+      if (this.running && event === 'transitionrun') {
+        if (![...this.blocks.values()].some(block => block.translation?.isConnected && (target.contains(block.element) || target.contains(block.translation)))) return;
+        let properties = this.colorTransitions.get(target);
+        if (!properties) this.colorTransitions.set(target, properties = new Set());
+        properties.add(change.propertyName);
+      } else {
+        const properties = this.colorTransitions.get(target); properties?.delete(change.propertyName);
+        if (!properties?.size) this.colorTransitions.delete(target);
+      }
+      this.scheduleColors();
+    }, true);
     window.addEventListener('scroll', () => this.scheduleLayoutCheck(), { capture: true, passive: true });
     window.addEventListener('pagehide', () => this.stop());
     window.addEventListener('pageshow', event => { if (event.persisted) void this.initialize(); });
@@ -108,6 +127,7 @@ export class Controller {
     if (!this.running) {
       this.running = true; this.abort = new AbortController(); ++this.generation;
       this.observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'lang', 'aria-hidden', 'contenteditable', 'translate', 'role'] });
+      this.observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'lang'] });
       this.routeTimer = window.setInterval(() => this.checkRoute(), 1000);
     }
     this.schedule(document.body);
@@ -116,6 +136,7 @@ export class Controller {
   private stop(): void {
     ++this.generation; this.running = false; this.abort.abort();
     this.observer.disconnect(); this.intersection.disconnect();
+    cancelAnimationFrame(this.colorFrame); this.colorFrame = 0; this.colorTransitions.clear();
     this.layoutObserver.disconnect(); this.layoutTargets.clear(); clearTimeout(this.layoutTimer); this.layoutTimer = 0;
     clearTimeout(this.scanTimer); this.scanTimer = 0; clearInterval(this.routeTimer);
     this.roots.clear();
@@ -133,6 +154,9 @@ export class Controller {
 
   private schedule(root: Element): void {
     if (!this.running || !root.isConnected) return;
+    let owner: Element | null = root;
+    while (owner && !this.blocks.has(owner as HTMLElement)) owner = owner.parentElement;
+    root = owner ?? readingRoot(root);
     this.roots.add(root);
     if (this.scanTimer || this.scanning) return;
     this.scanTimer = window.setTimeout(() => { this.scanTimer = 0; void this.scan(); }, 160);
@@ -239,6 +263,17 @@ export class Controller {
       styleTranslation(block.translation, block.element, this.settings);
       if (!layoutFits(block.element, block.translation, width)) { block.translation.remove(); block.translation = undefined; this.waitForLayout(block); }
     }
+  }
+
+  private scheduleColors(): void {
+    if (!this.running || document.hidden || this.colorFrame) return;
+    this.colorFrame = requestAnimationFrame(() => {
+      this.colorFrame = 0;
+      if (!this.running || document.hidden) return;
+      for (const block of this.blocks.values()) if (block.translation?.isConnected && nearViewport(block.element)) styleTranslation(block.translation, block.element, this.settings);
+      for (const [element] of this.colorTransitions) if (!element.isConnected) this.colorTransitions.delete(element);
+      if (this.colorTransitions.size) this.scheduleColors();
+    });
   }
 
   private unwatchLayout(block: Block): void {

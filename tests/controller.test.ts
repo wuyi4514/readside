@@ -100,3 +100,35 @@ describe('independent language packages', () => {
     expect(controller.status().state).toBe('paused'); expect(document.querySelector('[data-pr-owned]')).toBeNull();
   });
 });
+
+describe('incremental reading', () => {
+  it('translates appended content and observes later character changes inside its inline markup', async () => {
+    await controller.initialize(); await vi.waitFor(() => expect(deferred.has(original)).toBe(true));
+    deferred.get(original)!('已有段落的译文');
+    await vi.waitFor(() => expect(controller.status().translated).toBe(1));
+    const title = document.createElement('h2');
+    title.innerHTML = `<span><strong>${updated}</strong></span>`;
+    document.body.append(title);
+    await vi.waitFor(() => expect(deferred.has(updated)).toBe(true)); deferred.get(updated)!('动态加载的标题');
+    await vi.waitFor(() => expect(title.querySelector('[data-pr-owned]')?.textContent).toBe('动态加载的标题'));
+    const replacement = 'Another newly loaded discussion describes how different people read and understand useful information.';
+    title.querySelector('strong')!.firstChild!.textContent = replacement;
+    await vi.waitFor(() => expect(deferred.has(replacement)).toBe(true)); deferred.get(replacement)!('更新后的标题');
+    await vi.waitFor(() => expect(title.querySelector('[data-pr-owned]')?.textContent).toBe('更新后的标题'));
+    expect(title.textContent).not.toContain('动态加载的标题');
+    controller.restore();
+    const paused = document.createElement('p'); paused.textContent = 'This content arrived after reading was paused and should stay in its original language.';
+    document.body.append(paused); await new Promise(resolve => setTimeout(resolve, 220));
+    expect(deferred.has(paused.textContent)).toBe(false);
+  });
+});
+
+describe('hydrated placeholders', () => {
+  it('discovers text populated inside previously empty inline markup', async () => {
+    document.body.innerHTML = '<h2><span><strong></strong></span></h2>';
+    await controller.initialize(); await new Promise(resolve => setTimeout(resolve, 220));
+    document.querySelector('strong')!.textContent = updated;
+    await vi.waitFor(() => expect(deferred.has(updated)).toBe(true)); deferred.get(updated)!('稍后加载的内容');
+    await vi.waitFor(() => expect(document.querySelector('h2 [data-pr-owned]')?.textContent).toBe('稍后加载的内容'));
+  });
+});

@@ -1,0 +1,5 @@
+let sequence=0;
+function appendDiscussion(){const article=document.createElement('article');const heading=document.createElement('h2');heading.textContent=`Discussion ${++sequence}: Reading brings people together and helps us understand different ideas.`;const text=document.createElement('p');const span=document.createElement('span');span.textContent='This newly loaded discussion describes useful ways to learn and understand the world around us.';text.append(span);article.append(heading,text);document.querySelector('#lazy-list').append(article);}
+document.querySelector('#append').addEventListener('click',appendDiscussion);
+document.querySelector('#recycle').addEventListener('click',()=>{document.querySelector('#comment-copy span').firstChild.textContent='The updated comment shares a different idea about how reading helps people learn from one another.';});
+const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)&&!sequence){appendDiscussion();observer.disconnect();}});observer.observe(document.querySelector('#sentinel'));

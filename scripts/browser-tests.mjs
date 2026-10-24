@@ -15,7 +15,7 @@ const results = [];
 const errors = [];
 const networks = new Set();
 const server = http.createServer(async (req, res) => {
-  const routes = { '/': 'reader.html', '/multilingual.html': 'multilingual.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
+  const routes = { '/': 'reader.html', '/multilingual.html': 'multilingual.html', '/feed.html': 'feed.html', '/layout.html': 'layout.html', '/layout.css': 'layout.css', '/layout.js': 'layout.js', '/dynamic.html': 'dynamic.html', '/dynamic.css': 'dynamic.css', '/dynamic.js': 'dynamic.js', '/fixture.css': 'fixture.css', '/fixture.js': 'fixture.js' };
   const file = routes[new URL(req.url, 'http://localhost').pathname];
   if (!file) { res.writeHead(404); res.end(); return; }
   const body = await readFile(path.join(rootDir, 'tests/fixtures', file));
@@ -247,6 +247,39 @@ try {
     assert.equal(await layouts.locator('#column-heading [data-pr-owned]').count(), 1);
   });
   await layouts.close();
+  const dynamic = await context.newPage();
+  const dynamicSession = await context.newCDPSession(dynamic);
+  // Model execution deliberately pauses in hidden documents. Keep this isolated
+  // foreground check visible even when the desktop app covers the test window.
+  await dynamicSession.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  await dynamic.setViewportSize({ width: 1440, height: 1100 });
+  await dynamic.goto('http://127.0.0.1:9329/dynamic.html'); await dynamic.bringToFront();
+  await check('Clamped titles and comments translate without changing original layout constraints', async () => {
+    for (const selector of ['#clamped-title + [data-pr-owned]', '#negative-title + [data-pr-owned]', '#comment-copy + [data-pr-owned]']) await dynamic.waitForSelector(selector, { timeout: 30000 });
+    assert.equal(await dynamic.locator('#clamped-title').evaluate(node => getComputedStyle(node).webkitLineClamp), '2');
+    assert.equal(await dynamic.locator('#comment-copy').evaluate(node => getComputedStyle(node).webkitLineClamp), '4');
+    assert.equal(await dynamic.locator('#fixed-title + [data-pr-owned],#row-title + [data-pr-owned]').count(), 0);
+  });
+  await check('Translucent and animated hover backgrounds preserve readable translation colors', async () => {
+    for (const [name, light] of [['light', true], ['dark', false]]) {
+      const translation = dynamic.locator(`#${name}-copy > [data-pr-owned]`); await translation.waitFor({ timeout: 30000 });
+      await dynamic.locator(`#${name}-card .surface`).hover(); await dynamic.waitForTimeout(80);
+      const channels = await translation.evaluate(node => getComputedStyle(node).color.match(/[\d.]+/gu).slice(0, 3).map(Number));
+      assert.ok(light ? Math.max(...channels) < 160 : Math.min(...channels) > 90);
+    }
+    await dynamic.locator('#transition-card').hover(); await dynamic.waitForTimeout(240);
+    assert.ok(await dynamic.locator('#transition-copy > [data-pr-owned]').evaluate(node => Math.min(...getComputedStyle(node).color.match(/[\d.]+/gu).slice(0,3).map(Number)) > 90));
+  });
+  await check('Nested text updates and lazy-loaded discussions receive fresh translations', async () => {
+    const original = await dynamic.locator('#comment-copy + [data-pr-owned]').textContent();
+    await dynamic.locator('#recycle').click(); await dynamic.locator('#comment-copy').scrollIntoViewIfNeeded();
+    await dynamic.waitForFunction(old => { const current = document.querySelector('#comment-copy + [data-pr-owned]')?.textContent; return current && current !== old; }, original, { timeout: 30000 });
+    await dynamic.locator('#append').click(); assert.equal(await dynamic.locator('#lazy-list [data-pr-owned]').count(), 0);
+    await dynamic.locator('#lazy-list').scrollIntoViewIfNeeded();
+    await dynamic.waitForSelector('#lazy-list h2 > [data-pr-owned]', { timeout: 30000 });
+    await dynamic.waitForSelector('#lazy-list p > [data-pr-owned]', { timeout: 30000 });
+  });
+  await dynamicSession.send('Emulation.setFocusEmulationEnabled', { enabled: false }); await dynamicSession.detach(); await dynamic.close();
   await page.bringToFront();
   await check('Restore current page removes translations and pauses new content', async () => {
     const tabs = await options.evaluate(()=>chrome.tabs.query({}));

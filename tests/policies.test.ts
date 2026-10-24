@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, sanitizeSettings, shouldAutoTranslate } from '../src/shared/settings';
 import { TextCache } from '../src/shared/cache';
-import { contrast, parseColor, secondaryColor } from '../src/content/color';
+import { backgroundFor, contrast, parseColor, secondaryColor } from '../src/content/color';
 import { classify, languageGate, translatableSegments, selectedSegments } from '../src/content/language';
 import { candidates, entryKey, sourceText } from '../src/content/extractor';
 
@@ -120,6 +120,19 @@ describe('text columns', () => {
     document.body.innerHTML = '<div id="text-column" style="display:flex;flex-direction:column"><span style="display:block">Reading helps people discover new ideas.</span><span style="display:block">It also gives us a chance to understand one another.</span></div>';
     const found = [...candidates(document.body)];
     expect(found).toHaveLength(1); expect(found[0]?.id).toBe('text-column');
+    document.body.replaceChildren();
+  });
+});
+
+describe('composited reading backgrounds', () => {
+  it('composites translucent hover overlays rather than treating them as opaque black or white', () => {
+    document.body.innerHTML = '<article style="background:rgb(255,255,255)"><div style="background:rgba(0,0,0,.03)"><p>Reading should remain clear when hovering over a card.</p></div></article>';
+    const bg = backgroundFor(document.querySelector('p')!);
+    expect(bg).toEqual([247,247,247]);
+    expect(contrast(parseColor(secondaryColor([15,20,25],bg))!, bg)).toBeGreaterThanOrEqual(4.5);
+    document.querySelector('article')!.style.background = 'rgb(0,0,0)';
+    document.querySelector('div')!.style.background = 'rgba(255,255,255,.03)';
+    expect(backgroundFor(document.querySelector('p')!)).toEqual([8,8,8]);
     document.body.replaceChildren();
   });
 });
