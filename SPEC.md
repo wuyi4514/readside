@@ -4,7 +4,7 @@ Readside 是一款在网页原文下方显示译文的浏览器扩展。它帮�
 
 | 项目 | 规格 |
 | --- | --- |
-| 当前版本 | 0.3.0 |
+| 当前版本 | 0.3.1 |
 | 平台 | 桌面 Google Chrome，Manifest V3 |
 | 翻译方式 | Chrome 本地翻译、Google、Microsoft |
 | 源语言 | 多选，默认英语 |

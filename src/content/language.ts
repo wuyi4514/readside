@@ -15,6 +15,16 @@ export function classify(candidates: LanguageCandidate[], source: string): Langu
   return { result: language === source.split('-')[0] ? 'match' : 'non_match', language };
 }
 
+/** A deliberate lookup can use a clearly leading selected language. Automatic
+ * page filtering keeps the stricter classify() threshold. Never default to the
+ * first selected language when the ranking is ambiguous or leads elsewhere. */
+export function classifyLookup(candidates: LanguageCandidate[], source: string): LanguageEvidence {
+  const [first, second] = candidates;
+  if (!first || first.detectedLanguage === 'und' || first.confidence <= .5 || first.confidence - (second?.confidence ?? 0) < .2) return { result: 'unknown' };
+  const language = first.detectedLanguage.split('-')[0]!;
+  return { result: language === source.split('-')[0] ? 'match' : 'non_match', language };
+}
+
 export async function languageGate(text: string, source: string, detector: LanguageDetector, signal: AbortSignal, context = '', shortLabels = false): Promise<LanguageEvidence> {
   if (letterCount(text) < 2 || /^(?:https?:\/\/|www\.|@)|^[\d\s\p{P}\p{S}]+$/u.test(text)) return { result: 'non_match' };
   if (['en', 'fr', 'es', 'de'].includes(source)

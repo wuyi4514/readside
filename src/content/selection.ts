@@ -1,6 +1,6 @@
 import type { DocumentEngine } from '../providers/pool';
 import { apiLanguage, languageLabel, LANGUAGES, type Settings, type SourceLanguage } from '../shared/settings';
-import { classify } from './language';
+import { classify, classifyLookup } from './language';
 import { SENSITIVE, sourceText } from './extractor';
 
 const CSS = `:host{all:initial;position:fixed;z-index:2147483647;display:block;color-scheme:light dark;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;color:#202124;line-height:1.65}*{box-sizing:border-box}button{font:inherit;cursor:pointer;border:0;border-radius:6px;padding:6px 10px;background:#25272c;color:#ffffff}button:focus-visible{outline:2px solid #3266e8;outline-offset:3px}.panel{width:min(320px,calc(100vw - 24px));padding:17px;background:#ffffff;box-shadow:0 4px 25px #10182826;border:1px solid #e6e8ec;border-radius:11px}.top{display:flex;justify-content:space-between;align-items:center;color:#666b74;font-size:10px;letter-spacing:.3px}.close{color:inherit;background:none;font-size:19px;padding:0 4px}.source{font-family:inherit;font-size:16px;margin:13px 0 8px;white-space:pre-wrap;max-height:150px;overflow:auto;overflow-wrap:anywhere}.result{font-size:13px;white-space:pre-wrap;max-height:210px;overflow:auto;margin-top:5px}.label{font-size:10px;color:#666b74;margin-top:12px}.actions{display:flex;gap:13px;align-items:center;margin-top:13px}.copy{padding:0;background:none;color:#25272c;font-size:11px}.note{font-size:10px;color:#666b74;margin-top:13px;border-top:1px solid #e6e8ec;padding-top:9px} @media(prefers-color-scheme:dark){:host{color:#eeeef0}.panel{background:#222428;border-color:#4b505b}.top,.label,.note{color:#a4a9b3}.copy{color:#c5d5ff}.note{border-color:#363941}button{background:#ebedf2;color:#202228}.close{background:none;color:#a4a9b3}}`;
@@ -9,6 +9,7 @@ export class SelectionLookup {
   private host?: HTMLElement;
   private abort?: AbortController;
   private range?: Range;
+  private rangeText = '';
   private text = '';
   private context = '';
   private previousFocus?: Element | null;
@@ -44,7 +45,7 @@ export class SelectionLookup {
     if (!common || [...common.querySelectorAll(SENSITIVE)].some(node => range.intersectsNode(node))) return;
     const text = selection.toString().trim();
     if (!text || text.length > 1000) { this.close(); return; }
-    this.close(); this.range = range.cloneRange(); this.text = text; this.sourceURL = location.href;
+    this.close(); this.range = range.cloneRange(); this.rangeText = this.range.toString(); this.text = text; this.sourceURL = location.href;
     const paragraph = start.closest('p,li,blockquote,div');
     const context = paragraph ? sourceText(paragraph) : '';
     this.context = context.length <= 500 && context !== text ? context : '';
@@ -94,10 +95,12 @@ export class SelectionLookup {
     try {
       if (this.settings().sourceLanguages.every(language => language === this.settings().targetLanguage)) { result.textContent = '源语言和目标语言相同，无需翻译。'; return; }
       if (!force) {
-        let evidence = classify(await this.engine().detect(text, controller.signal), source);
+        const ranking = await this.engine().detect(text, controller.signal);
+        let evidence = classifyLookup(ranking, source);
         if (evidence.result === 'unknown' && this.context) evidence = classify(await this.engine().detect(this.context, controller.signal), source);
         if (controller.signal.aborted || this.abort !== controller || !this.selectionCurrent()) return;
-        const detected = this.settings().sourceLanguages.find(language => apiLanguage(language) === evidence.language);
+        const sources = this.settings().sourceLanguages.filter(language => language !== this.settings().targetLanguage);
+        const detected = sources.find(language => apiLanguage(language) === evidence.language);
         if (detected && detected !== this.settings().targetLanguage) {
           source = detected;
           panel.querySelector('.top span')!.textContent = `${LANGUAGES.find(l => l.code === source)?.label} → ${languageLabel(this.settings().targetLanguage)}`;
@@ -123,12 +126,14 @@ export class SelectionLookup {
 
   private selectionCurrent(): boolean {
     return location.href === this.sourceURL && !!this.range?.startContainer.isConnected
-      && !!this.range.endContainer.isConnected && this.range.toString().trim() === this.text;
+      // Range uses DOM whitespace; Selection.toString() uses rendered whitespace.
+      // Compare the same representation over time, while translating what was selected.
+      && !!this.range.endContainer.isConnected && this.range.toString() === this.rangeText;
   }
 
   close(restoreFocus = false): void {
     clearTimeout(this.timer); this.abort?.abort(); this.host?.remove(); this.host = undefined; this.root = undefined;
-    this.range = undefined; this.text = ''; this.context = ''; this.translated = '';
+    this.range = undefined; this.rangeText = ''; this.text = ''; this.context = ''; this.translated = '';
     if (restoreFocus && this.previousFocus instanceof HTMLElement) this.previousFocus.focus({ preventScroll: true });
   }
 }
