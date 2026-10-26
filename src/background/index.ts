@@ -4,6 +4,7 @@ import { isExtensionUI } from '../shared/sender';
 import { nativeMessage } from './native-host';
 import { updateAction, forgetAction } from './action-icon';
 import { onlineMessage, cancelOnlineTab } from './online';
+import { checkUpdate, dismissUpdate, getUpdate, initializeUpdates, restoreUpdateAlarm, UPDATE_ALARM } from './updates';
 
 const KEY = 'settings';
 // Persisted registration ID stays stable across brand changes.
@@ -63,11 +64,12 @@ async function injectActive(): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
-  await register();
+  await Promise.allSettled([register(), initializeUpdates()]);
 }
 
 chrome.runtime.onInstalled.addListener(() => { void bootstrap().catch(() => undefined); });
 chrome.runtime.onStartup.addListener(() => { void bootstrap().catch(() => undefined); });
+chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === UPDATE_ALARM) void checkUpdate().catch(() => undefined); });
 chrome.permissions.onAdded.addListener(() => {
   void register().then(injectActive).then(async () => notify(await getSettings())).catch(() => undefined);
 });
@@ -81,6 +83,13 @@ chrome.tabs.onActivated.addListener(() => { void injectActive(); });
 
 chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
   if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object') return;
+  if (['PR_UPDATE_GET', 'PR_UPDATE_CHECK', 'PR_UPDATE_DISMISS'].includes(message.type)) {
+    if (!isUI(sender)) return;
+    const request = message.type === 'PR_UPDATE_CHECK' ? checkUpdate(message.force === true)
+      : message.type === 'PR_UPDATE_DISMISS' ? dismissUpdate(message.version) : getUpdate();
+    void request.then(update => reply({ update })).catch(() => reply({ error: 'update_unavailable' }));
+    return true;
+  }
   if (['PR_ONLINE', 'PR_ONLINE_CANCEL'].includes(message.type)) return onlineMessage(message as unknown as Record<string, unknown>, sender, reply, getSettings);
   if (['PR_NATIVE', 'PR_NATIVE_CANCEL'].includes(message.type)) return nativeMessage(message as unknown as Record<string, unknown>, sender, reply);
   if (message.type === 'PR_GET_SETTINGS') {
@@ -114,3 +123,5 @@ chrome.runtime.onMessage.addListener((message: Message, sender, reply) => {
     void updateAction(sender.tab.id, status).catch(() => undefined);
   }
 });
+
+void restoreUpdateAlarm().catch(() => undefined);

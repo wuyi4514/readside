@@ -14,6 +14,7 @@
         </figure>
       </aside>
       <div class="preferences" aria-label="阅读设置">
+        <section id="update-notice" class="update-notice" role="alert" hidden></section>
         <section class="setting-section"><h2>翻译语言</h2><div class="provider-field"><span class="field-label">翻译服务</span><div id="provider" class="product-select"></div><p id="provider-note" class="helper"></p></div><div class="options-language"><div><span class="field-label">源语言（可多选）</span><div id="source" class="product-select"></div></div><span class="language-arrow" aria-hidden="true">→</span><div><span class="field-label">目标语言</span><div id="target" class="product-select"></div></div></div><p class="helper">只翻译识别为源语言的内容。</p><div id="language-packs" class="language-packs" aria-label="翻译方向准备"></div><p id="engine-state" class="engine-state" role="status">正在检查翻译方向…</p></section>
         <section class="setting-section"><h2>自动翻译</h2><fieldset class="choice-row automatic-choice" id="auto-controls" disabled><legend>自动翻译网页</legend><div class="radio-options"><label><input id="auto-on" name="auto" type="radio" value="on">开启</label><label><input id="auto-off" name="auto" type="radio" value="off">关闭</label></div></fieldset><fieldset class="choice-row" id="all-sites-controls" disabled><legend>在所有网站自动翻译</legend><div class="radio-options"><label><input id="all-sites-yes" name="all-sites" type="radio" value="on">是</label><label><input id="all-sites-no" name="all-sites" type="radio" value="off">否</label></div></fieldset><p id="permission-state" class="helper"></p></section>
         <section class="setting-section"><h2>阅读设置</h2><fieldset class="choice-row selection-choice"><legend>选择词句后查译</legend><div class="radio-options"><label><input id="selection-on" name="selection" type="radio" value="on">开启</label><label><input id="selection-off" name="selection" type="radio" value="off">关闭</label></div></fieldset><div class="setting-line"><span>译文最小字号</span><div id="font-size" class="product-select font-select"></div></div></section>
@@ -21,6 +22,6 @@
         <div class="settings-bottom"><button id="clear-cache" class="button secondary small">清除翻译缓存</button><p id="message" class="message" role="status" hidden></p></div>
       </div>
     </main>
-    <footer class="options-footer"><div><a href="https://github.com/wuyi4514/readside" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/wuyi4514/readside/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明</a></div><span id="version">v0.3.1</span></footer>
+    <footer class="options-footer"><div><a href="https://github.com/wuyi4514/readside" target="_blank" rel="noreferrer">GitHub</a><a href="https://github.com/wuyi4514/readside/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">隐私说明</a></div><div class="version-controls"><div><span id="version">v0.4.0</span><button id="check-update" class="button secondary small" type="button">检查更新</button></div><p id="update-state" role="status">每天自动检查一次</p></div></footer>
   </div><script type="module" src="options.js"></script>
 </body></html>

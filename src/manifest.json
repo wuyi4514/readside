@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Readside",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "保留网页原文，在下方显示轻量译文。支持多语言对照阅读与词句查译。",
   "minimum_chrome_version": "138",
   "permissions": [
     "storage",
     "offscreen",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "alarms"
   ],
   "optional_host_permissions": [
     "https://*/*",
@@ -40,7 +41,7 @@
   },
   "incognito": "not_allowed",
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://translate.googleapis.com https://edge.microsoft.com"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://translate.googleapis.com https://edge.microsoft.com https://api.github.com"
   },
   "homepage_url": "https://github.com/wuyi4514/readside"
 }

@@ -9,7 +9,7 @@
 ## 安装 Readside
 
 1. 打开 [Releases](https://github.com/wuyi4514/readside/releases/latest)。
-2. 下载 `readside-0.3.1.zip`，解压到准备长期保留的目录。
+2. 下载 `readside-0.4.0.zip`，解压到准备长期保留的目录。
 3. 在 Chrome 地址栏输入 `chrome://extensions`，打开右上角的“开发者模式”。
 4. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的目录。
 5. 在 Chrome 扩展菜单中固定 Readside。
@@ -45,12 +45,16 @@ GitHub 的 Source code 压缩包是源代码；安装时请使用名称以 `read
 
 ## 更新
 
+Readside 会自动检查 GitHub 正式 Release。发现新版本时，弹窗与设置页显示提醒，可点击“下载更新”获取安装包，或查看“更新说明”。设置页右下方提供“检查更新”。
+
 1. 下载并解压新版本。
 2. 用新文件替换原插件目录的内容。
 3. 在 `chrome://extensions` 中点击 Readside 的重新加载按钮。
 4. 刷新已经打开的网页。
 
 保持原目录路径可保留扩展身份和设置。更新后打开设置，查看所选语言方向是否需要准备语言包。
+
+提醒功能只检查版本并提供下载，不自动安装、替换文件或重新加载插件。无需删除和重新添加已有的 Readside。
 
 ## 卸载
 

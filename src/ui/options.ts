@@ -1,3 +1,4 @@
+import { UpdateNotice } from './updates';
 import { providerSelect, providerReady, providerNote } from './provider';
 import { loadSettings, saveSettings } from '../shared/messages';
 import { DEFAULT_SETTINGS, LANGUAGES, sanitizeSettings, type Settings, type TargetLanguage, type SourceLanguage } from '../shared/settings';
@@ -73,3 +74,5 @@ void (async () => {
   settings = await loadSettings(); provider.setValues([settings.provider]); providerNote(settings); automatic.render(); setChoice('selection', settings.selectionLookup); font.setValues([String(settings.minimumTranslationFontPx)]);
   renderRules(); await Promise.all([refreshLanguages(), refreshPermissions()]);
 })().catch(error => message(errorText(error), true));
+
+new UpdateNotice();

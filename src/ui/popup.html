@@ -4,6 +4,7 @@
 <body class="popup">
   <header class="popup-head"><div class="brand"><img src="icons/48.png" width="32" height="32" alt=""><strong>Readside</strong></div><button class="icon-button" id="settings" title="设置" aria-label="打开设置"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m9.5 3-.6 2.2-1.8 1-2.2-.5-2.5 4.4L4 11.7v2L2.4 15l2.5 4.3 2.2-.5 1.8 1 .6 2.2h5l.6-2.2 1.8-1 2.2.5 2.5-4.3-1.6-1.4v-2l1.6-1.5-2.5-4.4-2.2.5-1.8-1L14.5 3Z" transform="translate(0 -1) scale(1 .95)"/><circle cx="12" cy="11.5" r="3"/></svg></button></header>
   <main>
+    <section id="update-notice" class="update-notice" role="alert" hidden></section>
     <div class="page-status" id="status" role="status"><span class="status-dot"></span><span id="status-text">正在连接…</span></div>
     <button id="retry" class="button secondary small" hidden>重试未完成内容</button>
     <fieldset class="choice-row automatic-choice" id="auto-controls" disabled><legend>自动翻译</legend><div class="radio-options"><label><input id="auto-on" name="auto" type="radio" value="on">开启</label><label><input id="auto-off" name="auto" type="radio" value="off">关闭</label></div></fieldset>

@@ -7,7 +7,7 @@ Readside 使用 TypeScript、Manifest V3、原生 HTML/CSS 和 esbuild。发布�
 | 上下文 | 职责 |
 | --- | --- |
 | Content script，isolated world | 提取网页文字、筛选语言、调度可见内容、插入译文和词句查译 |
-| Background service worker | 设置与权限、动态脚本注册、标签页状态、受信消息路由 |
+| Background service worker | 设置与权限、动态脚本注册、标签页状态、版本检查、受信消息路由 |
 | Options | 设置、本地模型检查与下载、网站范围管理 |
 | Popup | 当前页状态、语言选择、自动开关、主动翻译和恢复 |
 | Offscreen document | 扩展来源下的本地 Translator 与 LanguageDetector 会话 |
@@ -75,7 +75,7 @@ Content script 的请求由扩展身份、顶层 documentId、来源 URL、操�
 
 Offscreen 会话按 documentId 和 client ID 隔离；设置变化产生新的运行代次。请求合并外部取消、引擎生命周期和 15 秒执行超时。即使底层原生调用迟到返回，旧任务也不能回写页面。
 
-Offscreen Port 仅接受本扩展的准确页面来源。原网页没有可调用的翻译代理；不开放 `externally_connectable`、`postMessage` 桥或任意联网 URL。扩展页 CSP 的连接白名单仅允许 Google 与 Microsoft 服务主机。在线请求经后台固定协议路由，校验当前服务、语言、长度与主机权限，使用无凭据、无 referrer 的请求，不接受任意 URL。
+Offscreen Port 仅接受本扩展的准确页面来源。原网页没有可调用的翻译代理；不开放 `externally_connectable`、`postMessage` 桥或任意联网 URL。扩展页 CSP 的连接白名单仅允许 Google、Microsoft 与 GitHub API 主机。在线翻译请求经后台固定协议路由，校验当前服务、语言、长度与主机权限，使用无凭据、无 referrer 的请求，不接受任意 URL。
 
 只有受信的 Popup 和 Options 可写设置。写入串行化并递增版本；`storage.local` 仅对受信上下文开放，content script 经后台读取。未知设置 schema 保守关闭自动翻译。
 
@@ -97,7 +97,7 @@ Google 使用公开网页翻译端点；Microsoft 使用 Edge 网页翻译端点
 
 ## 权限
 
-必需权限为 `storage`、`scripting`、`activeTab` 和 `offscreen`。可选站点权限覆盖 HTTPS；本地开发地址限于 localhost 和 127.0.0.1。不申请浏览历史、Cookie、网络拦截或剪贴板读取权限。
+必需权限为 `storage`、`scripting`、`activeTab`、`offscreen` 和 `alarms`。可选站点权限覆盖 HTTPS；本地开发地址限于 localhost 和 127.0.0.1。不申请浏览历史、Cookie、网络拦截或剪贴板读取权限。
 
 自动脚本只在已授权范围注册，并随设置和权限变化对账。临时 `activeTab` 支持用户主动操作当前页，不代替持续自动运行的网站授权。网站设置按 origin 精确匹配。
 
@@ -108,6 +108,14 @@ Google 使用公开网页翻译端点；Microsoft 使用 Edge 网页翻译端点
 单选项保留原生输入语义并使用统一外观。翻译卡片显示完整方向；Chrome 的 `downloadable` 可能隐藏已有缓存，因此映射为“待准备”，仅用户点击“准备”后创建会话。圆环直接绑定浏览器 `downloadprogress.loaded`，没有数值时显示准备状态，不模拟百分比。目标变更取消旧任务，使旧进度与完成回调失效；返回已有方向时重新探测可用性，不由 Readside 删除浏览器模型。
 
 工具栏使用静态工作环与页面状态提示，弹窗内使用支持 reduced motion 的旋转环。
+
+## 版本检查
+
+后台读取固定仓库的公开 `releases/latest`，验证正式发布状态、数字版本号和已完成上传的分发 ZIP。发布页与下载链接由固定仓库、标签和版本生成并核对，不展示远程 HTML 或执行远程代码。
+
+正常检查间隔为 24 小时，使用 ETag 条件请求与 12 秒超时。检查并发合并，连续手动点击有 60 秒冷却；网络失败保留已有版本并在约 15 分钟后重试，GitHub 限流遵守延后时间。通过 `alarms` 唤醒 service worker，并在 worker 启动时补齐闹钟。
+
+检查结果、成功时间和当前版本的暂缓期限保存在 `storage.local`，通过存储变更同步两处 Alert。请求与暂缓操作只接受受信的 Popup 和 Options；网页脚本不能触发强制检查。下载使用用户点击的 GitHub 链接，不申请下载管理权限，不自动解压或安装。
 
 ## 构建与分发
 

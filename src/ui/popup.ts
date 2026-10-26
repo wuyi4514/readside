@@ -1,3 +1,4 @@
+import { UpdateNotice } from './updates';
 import { providerSelect, providerReady, providerNote } from './provider';
 import { EMPTY_STATUS, loadSettings, saveSettings, type Message, type PageStatus } from '../shared/messages';
 import { DEFAULT_SETTINGS, LANGUAGES, sanitizeSettings, validOrigin, type Settings, type TargetLanguage, type SourceLanguage } from '../shared/settings';
@@ -102,3 +103,5 @@ void (async () => {
 })().catch(error => message(errorText(error), true));
 const poll = window.setInterval(() => { void refresh(); }, 1200);
 window.addEventListener('pagehide', () => clearInterval(poll));
+
+new UpdateNotice();
