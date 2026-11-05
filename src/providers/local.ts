@@ -52,7 +52,9 @@ export class LocalEngine {
     if (cached) return cached;
     const detector = await this.detectionSession();
     signal.throwIfAborted();
-    const result = await detector.detect(text.slice(0, 4000), { signal: AbortSignal.any([signal, this.lifecycle.signal, AbortSignal.timeout(15_000)]) });
+    let result: LanguageCandidate[];
+    try { result = await detector.detect(text.slice(0, 4000), { signal: AbortSignal.any([signal, this.lifecycle.signal, AbortSignal.timeout(15_000)]) }); }
+    catch (error) { if (releasedSession(error, signal, this.lifecycle.signal)) { this.detector = undefined; this.translator = undefined; } throw error; }
     const valid = result.filter(r => typeof r.detectedLanguage === 'string' && Number.isFinite(r.confidence) && r.confidence >= 0 && r.confidence <= 1).sort((a, b) => b.confidence - a.confidence);
     signal.throwIfAborted(); this.detections.set(text, valid); return valid;
   }
@@ -63,7 +65,9 @@ export class LocalEngine {
     if (cached !== undefined) return cached;
     const translator = await this.translationSession();
     signal.throwIfAborted();
-    const translated = (await translator.translate(text, { signal: AbortSignal.any([signal, this.lifecycle.signal, AbortSignal.timeout(15_000)]) })).trim();
+    let translated: string;
+    try { translated = (await translator.translate(text, { signal: AbortSignal.any([signal, this.lifecycle.signal, AbortSignal.timeout(15_000)]) })).trim(); }
+    catch (error) { if (releasedSession(error, signal, this.lifecycle.signal)) { this.detector = undefined; this.translator = undefined; } throw error; }
     signal.throwIfAborted();
     if (!translated || translated.length > Math.max(4000, text.length * 8)) throw new EngineError('translation_failed');
     this.translations.set(text, translated); return translated;
@@ -76,6 +80,11 @@ export class LocalEngine {
     void this.detector?.then(d => d.destroy()).catch(() => undefined);
     this.translator = undefined; this.detector = undefined; this.clearCache();
   }
+}
+
+function releasedSession(error: unknown, signal: AbortSignal, lifecycle: AbortSignal): boolean {
+  const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  return !signal.aborted && !lifecycle.aborted && ['InvalidStateError', 'AbortError'].includes(name);
 }
 
 /** Chrome may report downloadable for a cached pair at a new origin. Only try

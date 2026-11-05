@@ -2,6 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocalEngine } from '../src/providers/local';
 afterEach(() => vi.unstubAllGlobals());
 describe('native cached-pair creation', () => {
+  it('recreates a native translator after its extension session is released', async () => {
+    vi.stubGlobal('isSecureContext', true);
+    const first = vi.fn(async () => { throw new DOMException('Session was released', 'InvalidStateError'); });
+    const create = vi.fn().mockResolvedValueOnce({ translate: first, destroy() {} }).mockResolvedValueOnce({ translate: async () => '重新连接后的译文', destroy() {} });
+    const engine = new LocalEngine('en', 'zh-CN', () => ({ translator: { availability: async () => 'available', create } }), false);
+    await expect(engine.translate('Read this sentence.', new AbortController().signal)).rejects.toMatchObject({ name: 'InvalidStateError' });
+    expect(await engine.translate('Read this sentence.', new AbortController().signal)).toBe('重新连接后的译文');
+    expect(create).toHaveBeenCalledTimes(2); engine.dispose();
+  });
+  it('recreates a native detector after an unexpected offscreen restart', async () => {
+    const create = vi.fn().mockResolvedValueOnce({ detect: async () => { throw new DOMException('Engine restarted', 'AbortError'); }, destroy() {} })
+      .mockResolvedValueOnce({ detect: async () => [{ detectedLanguage: 'en', confidence: .99 }], destroy() {} });
+    const engine = new LocalEngine('en', 'zh-CN', () => ({ detector: { availability: async () => 'available', create } }), false);
+    await expect(engine.detect('Read this sentence.', new AbortController().signal)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await engine.detect('Read this sentence.', new AbortController().signal)).toEqual([{ detectedLanguage: 'en', confidence: .99 }]);
+    expect(create).toHaveBeenCalledTimes(2); engine.dispose();
+  });
   it('uses a cached pair even when availability hides its state at a new origin', async () => {
     vi.stubGlobal('isSecureContext', true);
     const translate = vi.fn(async () => '内容的译文'); const destroy = vi.fn();

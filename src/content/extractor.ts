@@ -24,9 +24,13 @@ export function sourceText(root: Element): string {
       if (style.display === 'none' || style.visibility === 'hidden') { visible = false; break; }
       if (current === root) break;
     }
-    if (visible) pieces.push(node.textContent ?? '');
+    if (visible) {
+      const text = node.textContent ?? '';
+      const preserveLines = ['pre', 'pre-wrap', 'pre-line', 'break-spaces'].includes(getComputedStyle(parent).whiteSpace);
+      pieces.push(preserveLines ? text.replace(/\r\n?/gu, '\n') : text.replace(/\s+/gu, ' '));
+    }
   }
-  return pieces.join('').replace(/\s+/gu, ' ').trim();
+  return pieces.join('').replace(/[^\S\n]+/gu, ' ').trim();
 }
 
 export function sourceLanguageHint(element: Element): string | undefined {
@@ -51,7 +55,7 @@ export function isCandidate(element: Element): element is HTMLElement {
   const column = ['flex', 'inline-flex'].includes(style.display) && style.flexDirection === 'column';
   if (!column && !['block', 'flow-root', 'list-item', 'inline-block', 'inline', 'table-cell', ''].includes(style.display) && !element.matches('button,a,[role="button"],[role="tab"]')) return false;
   if ([...element.children].some(child => !child.matches(OWNED) && !child.matches(SENSITIVE)
-    && !['inline', 'contents', 'inline-block'].includes(getComputedStyle(child).display)
+    && !['inline', 'contents', 'inline-block', 'inline-flex', 'inline-grid'].includes(getComputedStyle(child).display)
     && !(column && child.matches('span,strong,em,b,i,small,a,code,br')))) return false;
   return /\p{L}/u.test(sourceText(element));
 }

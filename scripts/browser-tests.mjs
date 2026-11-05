@@ -248,6 +248,23 @@ try {
     await layouts.waitForSelector('#column-heading > [data-pr-owned]', { timeout: 30000 });
     assert.equal(await layouts.locator('#column-heading [data-pr-owned]').count(), 1);
   });
+  await check('Long inline posts wrap within their text column and keep inline links in the same block', async () => {
+    for (const selector of ['#long-inline', '#post-with-mention']) {
+      await layouts.locator(selector).scrollIntoViewIfNeeded();
+      await layouts.waitForSelector(`${selector} > [data-pr-owned]`, { timeout: 30000 });
+      const geometry = await layouts.locator(selector).evaluate(source => {
+        const translation = source.querySelector('[data-pr-owned]');
+        const range = document.createRange(); range.selectNodeContents(translation);
+        const bounds = source.closest('article').getBoundingClientRect();
+        const lines = [...range.getClientRects()].filter(line => line.width > 0);
+        return { lines: lines.length, fits: lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1) };
+      });
+      assert.ok(geometry.fits); assert.ok(geometry.lines > 1);
+      assert.equal(await layouts.locator(`${selector} [data-pr-owned]`).count(), 1);
+    }
+    assert.equal(await layouts.locator('#post-with-mention [data-pr-source]').count(), 0);
+    assert.equal(await layouts.locator('#post-with-mention a').getAttribute('href'), '#person');
+  });
   await layouts.close();
   const dynamic = await context.newPage();
   const dynamicSession = await context.newCDPSession(dynamic);
@@ -312,6 +329,47 @@ try {
     await page.waitForTimeout(400);
     assert.equal(await page.locator('[data-pr-owned="translation"]').count(),0);
     assert.equal(await timeline.locator('[data-pr-owned="translation"]').count(),0);
+  });
+  await check('A long multi-paragraph selection completes with real local translation and preserved paragraphs', async () => {
+    await page.bringToFront();
+    await page.evaluate(() => {
+      const article = document.createElement('article'); article.id = 'long-lookup';
+      for (const text of ['Reading carefully helps us understand how people build useful tools for their communities. '.repeat(8), 'Learning from different perspectives gives us a chance to explore the world and share new ideas. '.repeat(8), 'This is the final paragraph.']) {
+        const paragraph = document.createElement('p'); paragraph.textContent = text.trim(); article.append(paragraph);
+      }
+      document.querySelector('main').prepend(article); article.scrollIntoView();
+      const range = document.createRange(); range.selectNodeContents(article);
+      getSelection().removeAllRanges(); getSelection().addRange(range);
+      document.body.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    });
+    await page.locator('[data-pr-owned="lookup"] button').click();
+    await page.waitForFunction(() => {
+      const root = document.querySelector('[data-pr-owned="lookup"]')?.shadowRoot;
+      return root?.querySelector('[data-copy-translation]')?.disabled === false;
+    }, {}, { timeout: 30000 });
+    const value = await page.locator('[data-pr-owned="lookup"] .result').textContent();
+    assert.match(value, /\p{Script=Han}/u); assert.equal(value.split(/\n\n/u).length, 3);
+    await page.screenshot({ path: path.join(evidenceDir, 'long-selection.png') });
+    await page.keyboard.press('Escape');
+    await page.locator('#long-lookup').evaluate(node => node.remove());
+  });
+  await check('Lookup reconnects after the native offscreen session is lost', async () => {
+    const worker = context.serviceWorkers().find(worker => worker.url() === `chrome-extension://${id}/background.js`);
+    assert.ok(worker); await worker.evaluate(() => chrome.offscreen.closeDocument());
+    await page.evaluate(() => {
+      const paragraph = document.createElement('p'); paragraph.id = 'reconnect-lookup';
+      paragraph.textContent = 'A new session should let people continue reading without choosing the same words again.';
+      document.querySelector('main').prepend(paragraph); paragraph.scrollIntoView();
+      const range = document.createRange(); range.selectNodeContents(paragraph);
+      getSelection().removeAllRanges(); getSelection().addRange(range);
+      document.body.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    });
+    await page.locator('[data-pr-owned="lookup"] button').click();
+    await page.locator('[data-pr-owned="lookup"] .result').filter({ hasText: '本地翻译连接已中断' }).waitFor();
+    await page.getByRole('button', { name: '重试', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('[data-pr-owned="lookup"]')?.shadowRoot?.querySelector('[data-copy-translation]')?.disabled === false, {}, { timeout: 30000 });
+    assert.match(await page.locator('[data-pr-owned="lookup"] .result').textContent(), /\p{Script=Han}/u);
+    await page.keyboard.press('Escape'); await page.locator('#reconnect-lookup').evaluate(node => node.remove());
   });
   await check('Manual translation works with global automatic translation off',async()=>{
     const tabs=await options.evaluate(()=>chrome.tabs.query({}));const target=tabs.filter(t=>t.url==='http://127.0.0.1:9329/').at(-1);
@@ -488,5 +546,7 @@ try {
   await writeFile(path.join(evidenceDir, 'failure.txt'), String(error.stack ?? error));
   throw error;
 } finally {
-  server.close(); await browser.close();
+  // CDP disconnect leaves Chrome's fixture connections open. Close this suite's
+  // sockets as well, so completed checks do not keep the Node process alive.
+  server.closeAllConnections(); server.close(); await browser.close();
 }

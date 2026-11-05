@@ -3,7 +3,7 @@ import { apiLanguage, languageLabel, LANGUAGES, type Settings, type SourceLangua
 import { classify, classifyLookup } from './language';
 import { SENSITIVE, sourceText } from './extractor';
 
-const CSS = `:host{all:initial;position:fixed;z-index:2147483647;display:block;color-scheme:light dark;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;color:#202124;line-height:1.65}*{box-sizing:border-box}button{font:inherit;cursor:pointer;border:0;border-radius:6px;padding:6px 10px;background:#25272c;color:#ffffff}button:focus-visible{outline:2px solid #3266e8;outline-offset:3px}.panel{width:min(320px,calc(100vw - 24px));padding:17px;background:#ffffff;box-shadow:0 4px 25px #10182826;border:1px solid #e6e8ec;border-radius:11px}.top{display:flex;justify-content:space-between;align-items:center;color:#666b74;font-size:10px;letter-spacing:.3px}.close{color:inherit;background:none;font-size:19px;padding:0 4px}.source{font-family:inherit;font-size:16px;margin:13px 0 8px;white-space:pre-wrap;max-height:150px;overflow:auto;overflow-wrap:anywhere}.result{font-size:13px;white-space:pre-wrap;max-height:210px;overflow:auto;margin-top:5px}.label{font-size:10px;color:#666b74;margin-top:12px}.actions{display:flex;gap:13px;align-items:center;margin-top:13px}.copy{padding:0;background:none;color:#25272c;font-size:11px}.note{font-size:10px;color:#666b74;margin-top:13px;border-top:1px solid #e6e8ec;padding-top:9px} @media(prefers-color-scheme:dark){:host{color:#eeeef0}.panel{background:#222428;border-color:#4b505b}.top,.label,.note{color:#a4a9b3}.copy{color:#c5d5ff}.note{border-color:#363941}button{background:#ebedf2;color:#202228}.close{background:none;color:#a4a9b3}}`;
+const CSS = `:host{all:initial;position:fixed;z-index:2147483647;display:block;color-scheme:light dark;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;color:#202124;line-height:1.65}*{box-sizing:border-box}button{font:inherit;cursor:pointer;border:0;border-radius:6px;padding:6px 10px;background:#25272c;color:#ffffff}button:focus-visible{outline:2px solid #3266e8;outline-offset:3px}.panel{width:min(320px,calc(100vw - 24px));padding:17px;background:#ffffff;box-shadow:0 4px 25px #10182826;border:1px solid #e6e8ec;border-radius:11px}.top{display:flex;justify-content:space-between;align-items:center;color:#666b74;font-size:10px;letter-spacing:.3px}.close{color:inherit;background:none;font-size:19px;padding:0 4px}.source{font-family:inherit;font-size:16px;margin:13px 0 8px;white-space:pre-wrap;max-height:150px;overflow:auto;overflow-wrap:anywhere}.result{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:210px;overflow:auto;margin-top:5px}.label{font-size:10px;color:#666b74;margin-top:12px}.actions{display:flex;gap:13px;align-items:center;margin-top:13px}.copy{padding:0;background:none;color:#25272c;font-size:11px}.copy:disabled{opacity:.45;cursor:default}.note{font-size:10px;color:#666b74;margin-top:13px;border-top:1px solid #e6e8ec;padding-top:9px} @media(prefers-color-scheme:dark){:host{color:#eeeef0}.panel{background:#222428;border-color:#4b505b}.top,.label,.note{color:#a4a9b3}.copy{color:#c5d5ff}.note{border-color:#363941}button{background:#ebedf2;color:#202228}.close{background:none;color:#a4a9b3}}`;
 
 export class SelectionLookup {
   private host?: HTMLElement;
@@ -44,7 +44,7 @@ export class SelectionLookup {
     const common = range.commonAncestorContainer instanceof Element ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
     if (!common || [...common.querySelectorAll(SENSITIVE)].some(node => range.intersectsNode(node))) return;
     const text = selection.toString().trim();
-    if (!text || text.length > 1000) { this.close(); return; }
+    if (!text || text.length > 4000) { this.close(); return; }
     this.close(); this.range = range.cloneRange(); this.rangeText = this.range.toString(); this.text = text; this.sourceURL = location.href;
     const paragraph = start.closest('p,li,blockquote,div');
     const context = paragraph ? sourceText(paragraph) : '';
@@ -76,11 +76,12 @@ export class SelectionLookup {
     const label = document.createElement('div'); label.className = 'label'; label.textContent = this.text.split(/\s+/u).length <= 3 ? '单词／短语直译' : '句子翻译'; panel.append(label);
     const result = document.createElement('div'); result.className = 'result'; result.lang = this.settings().targetLanguage; result.setAttribute('role', 'status'); result.textContent = '正在查译…'; panel.append(result);
     const actions = document.createElement('div'); actions.className = 'actions'; panel.append(actions);
-    const copy = (label: string, getText: () => string): void => {
+    const copy = (label: string, getText: () => string, translated = false): void => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'copy'; button.textContent = label;
+      if (translated) { button.dataset.copyTranslation = ''; button.disabled = true; }
       button.addEventListener('click', () => { void navigator.clipboard.writeText(getText()).then(() => { button.textContent = '已复制'; }).catch(() => { button.textContent = '请选中文字复制'; }); }); actions.append(button);
     };
-    copy('复制原文', () => this.text); copy('复制译文', () => this.translated);
+    copy('复制原文', () => this.text); copy('复制译文', () => this.translated, true);
     const note = document.createElement('div'); note.className = 'note'; note.textContent = this.settings().provider === 'chrome-local' ? '机器翻译 · 仅在本地处理' : `机器翻译 · ${this.settings().provider === 'google' ? 'Google' : 'Microsoft'}`; panel.append(note);
     this.root!.replaceChildren(this.root!.querySelector('style')!, panel); this.position();
     return panel;
@@ -90,6 +91,7 @@ export class SelectionLookup {
     if (!this.root || !this.text || !this.selectionCurrent()) { this.close(); return; }
     this.abort?.abort(); this.abort = new AbortController();
     const controller = this.abort, text = this.text;
+    this.translated = '';
     let source = force ?? this.settings().sourceLanguages[0]!;
     const panel = this.panel(source), result = panel.querySelector<HTMLElement>('.result')!;
     try {
@@ -114,13 +116,30 @@ export class SelectionLookup {
           this.position(); return;
         }
       }
-      const translated = await this.engine().translate(text, source, controller.signal);
+      // Translate paragraphs separately: native engines can flatten line breaks,
+      // and a long selection should not become one oversized provider request.
+      const chunks = lookupChunks(text), translated: string[] = [];
+      for (const [index, chunk] of chunks.entries()) {
+        controller.signal.throwIfAborted();
+        if (this.abort !== controller || !this.selectionCurrent()) { this.close(); return; }
+        result.textContent = chunks.length > 1 ? `正在查译（${index + 1}/${chunks.length}）…` : '正在查译…';
+        const value = await this.engine().translate(chunk.text, source, controller.signal);
+        if (!value.trim()) throw new Error('translation_failed');
+        translated.push(chunk.separator + value.trim());
+      }
       if (controller.signal.aborted || this.text !== text || this.abort !== controller) return;
       if (!this.selectionCurrent()) { this.close(); return; }
-      this.translated = translated; result.textContent = translated;
+      this.translated = translated.join(''); result.textContent = this.translated;
+      panel.querySelector<HTMLButtonElement>('[data-copy-translation]')!.disabled = false;
       this.position();
     } catch (error) {
-      if (!controller.signal.aborted) { result.textContent = error instanceof Error && error.message === 'needs_download' ? '需要先从阅读设置中准备语言包。' : '查译未完成，请稍后重试。'; this.position(); }
+      if (!controller.signal.aborted && this.abort === controller) {
+        if (!this.selectionCurrent()) { this.close(); return; }
+        result.textContent = lookupError(error);
+        const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'copy'; retry.textContent = '重试';
+        retry.addEventListener('click', () => { void this.lookup(source); });
+        panel.querySelector('.actions')!.append(retry); this.position();
+      }
     }
   }
 
@@ -136,4 +155,41 @@ export class SelectionLookup {
     this.range = undefined; this.rangeText = ''; this.text = ''; this.context = ''; this.translated = '';
     if (restoreFocus && this.previousFocus instanceof HTMLElement) this.previousFocus.focus({ preventScroll: true });
   }
+}
+
+function lookupChunks(text: string): Array<{ text: string; separator: string }> {
+  const chunks: Array<{ text: string; separator: string }> = [];
+  let separator = '';
+  for (const part of text.split(/(\n+)/u)) {
+    if (/^\n+$/u.test(part)) { separator += part; continue; }
+    let remaining = part.trim();
+    while (remaining) {
+      let cut = remaining.length;
+      if (cut > 600) {
+        const prefix = remaining.slice(0, 600);
+        const sentence = [...prefix.matchAll(/[.!?。！？](?:\s+|$)/gu)].at(-1);
+        const space = [...prefix.matchAll(/\s+/gu)].at(-1);
+        cut = sentence && sentence.index! >= 200 ? sentence.index! + sentence[0].length : space && space.index! >= 200 ? space.index! : 600;
+        // Keep surrogate pairs intact when a language has no word boundaries.
+        if (/[\uD800-\uDBFF]/u.test(remaining[cut - 1]!)) cut--;
+      }
+      chunks.push({ text: remaining.slice(0, cut).trim(), separator });
+      remaining = remaining.slice(cut).trimStart(); separator = remaining ? ' ' : '';
+    }
+  }
+  return chunks;
+}
+
+function lookupError(error: unknown): string {
+  const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  const code = error && typeof error === 'object' && 'message' in error ? String(error.message) : '';
+  if (code === 'needs_download') return '需要先从阅读设置中准备语言包。';
+  if (code === 'unsupported_pair') return '当前翻译服务不支持这个语言方向，请更换翻译服务。';
+  if (code === 'unsupported_browser') return '当前浏览器不支持本地翻译，可在设置中更换翻译服务。';
+  if (code === 'online_permission') return '请先在插件设置中允许使用当前翻译服务。';
+  if (code === 'online_rate_limit' || code === 'online_busy') return '翻译服务暂时繁忙，请稍后重试。';
+  if (name === 'TimeoutError' || code === 'timeout') return '查译超时，请重试。';
+  if (name === 'QuotaExceededError') return '本地翻译暂时繁忙，请稍后重试。';
+  if (name === 'InvalidStateError' || name === 'AbortError') return '本地翻译连接已中断，请重试。';
+  return '查译未完成，请重试，或在设置中更换翻译服务。';
 }

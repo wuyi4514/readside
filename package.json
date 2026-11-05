@@ -1,6 +1,6 @@
 {
   "name": "readside",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Bilingual webpage reading with original text and translation",
   "license": "MIT",
@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "node scripts/browser-tests.mjs",
+    "test:layout": "node scripts/layout-tests.mjs",
     "browser:start": "node scripts/launch-chrome.mjs",
     "check": "npm run typecheck && npm test && npm run build",
     "package": "npm run check && node scripts/package.mjs"

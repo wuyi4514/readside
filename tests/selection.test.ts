@@ -39,7 +39,9 @@ describe('rendered selection and DOM range snapshots', () => {
     range.selectNodeContents(document.querySelector('article')!);
     vi.stubGlobal('getSelection', () => ({rangeCount:1,isCollapsed:false,getRangeAt:()=>range,toString:()=> 'Reading one sentence.\n\nThen another sentence.'}));
     await captureAndOpen();
-    await vi.waitFor(() => expect(translate).toHaveBeenCalledWith('Reading one sentence.\n\nThen another sentence.','en',expect.any(AbortSignal)));
+    await vi.waitFor(() => expect(translate).toHaveBeenCalledTimes(2));
+    expect(translate.mock.calls.map(call => call[0])).toEqual(['Reading one sentence.', 'Then another sentence.']);
+    await vi.waitFor(() => expect(result()?.querySelector('.result')?.textContent).toBe('这是一段译文。\n\n这是一段译文。'));
   });
   it('still rejects a genuinely changed source before translation starts', async () => {
     document.dispatchEvent(new Event('pointerup')); await vi.waitFor(()=>expect(result()?.querySelector('button')).toBeTruthy());
@@ -59,6 +61,51 @@ describe('rendered selection and DOM range snapshots', () => {
     range.selectNodeContents(document.querySelector('article')!);
     document.dispatchEvent(new Event('pointerup')); await new Promise(r=>setTimeout(r,120));
     expect(result()).toBeUndefined(); expect(translate).not.toHaveBeenCalled();
+  });
+});
+
+describe('bounded long selection lookup and recovery', () => {
+  it('translates a selection longer than 1000 characters in bounded requests without losing its ending', async () => {
+    const text = 'Reading gives us a chance to understand the people around us. '.repeat(24) + 'The final sentence.';
+    document.querySelector('p')!.textContent = text; range.selectNodeContents(document.querySelector('p')!);
+    translate.mockImplementation(async (part: string) => `译文(${part})`);
+    await captureAndOpen();
+    await vi.waitFor(() => expect((result()?.querySelector('[data-copy-translation]') as HTMLButtonElement)?.disabled).toBe(false));
+    const parts = translate.mock.calls.map(call => call[0] as string);
+    expect(parts.length).toBeGreaterThan(1); expect(parts.every(part => part.length <= 600)).toBe(true);
+    expect(parts.join(' ')).toBe(text);
+    expect(result()?.querySelector('.result')?.textContent).toContain('The final sentence.');
+  });
+  it('keeps copying disabled on failure and retries the same selection without requiring reselection', async () => {
+    translate.mockRejectedValueOnce(new DOMException('Timed out', 'TimeoutError')).mockResolvedValue('重试完成的译文');
+    await captureAndOpen();
+    await vi.waitFor(() => expect(result()?.querySelector('.result')?.textContent).toBe('查译超时，请重试。'));
+    expect((result()?.querySelector('[data-copy-translation]') as HTMLButtonElement).disabled).toBe(true);
+    const retry = [...result()!.querySelectorAll('button')].find(button => button.textContent === '重试')!;
+    retry.click();
+    await vi.waitFor(() => expect(result()?.querySelector('.result')?.textContent).toBe('重试完成的译文'));
+    expect((result()?.querySelector('[data-copy-translation]') as HTMLButtonElement).disabled).toBe(false);
+    expect(translate).toHaveBeenCalledTimes(2);
+  });
+  it('does not submit later paragraphs when the original selection changes during translation', async () => {
+    document.querySelector('p')!.textContent = 'First paragraph.\n\nSecond paragraph.';
+    range.selectNodeContents(document.querySelector('p')!);
+    vi.stubGlobal('getSelection', () => ({rangeCount:1,isCollapsed:false,getRangeAt:()=>range,toString:()=>range.toString()}));
+    let complete!: (value: string) => void;
+    translate.mockImplementation(() => new Promise<string>(resolve => { complete = resolve; }));
+    await captureAndOpen(); await vi.waitFor(() => expect(translate).toHaveBeenCalledOnce());
+    document.querySelector('p')!.textContent = 'Recycled source.';
+    complete('第一段译文'); await vi.waitFor(() => expect(result()).toBeUndefined());
+    expect(translate).toHaveBeenCalledOnce();
+  });
+  it('does not copy partial output or omit a failed paragraph', async () => {
+    document.querySelector('p')!.textContent = 'First paragraph.\n\nSecond paragraph.';
+    range.selectNodeContents(document.querySelector('p')!);
+    vi.stubGlobal('getSelection', () => ({rangeCount:1,isCollapsed:false,getRangeAt:()=>range,toString:()=>range.toString()}));
+    translate.mockResolvedValueOnce('第一段译文').mockRejectedValueOnce(new Error('translation_failed'));
+    await captureAndOpen();
+    await vi.waitFor(() => expect(result()?.querySelector('.result')?.textContent).toContain('查译未完成'));
+    expect((result()?.querySelector('[data-copy-translation]') as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

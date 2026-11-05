@@ -92,6 +92,12 @@ describe('language filtering', () => {
 });
 
 describe('source ownership and privacy', () => {
+  it('preserves explicit and pre-wrapped paragraph breaks while normalizing soft source lines', () => {
+    document.body.innerHTML = '<div style="white-space:pre-wrap">First paragraph.\n\nSecond paragraph.</div><p>Soft\nsource lines.<br>Explicit new line.</p>';
+    expect(sourceText(document.querySelector('div')!)).toBe('First paragraph.\n\nSecond paragraph.');
+    expect(sourceText(document.querySelector('p')!)).toBe('Soft source lines.\nExplicit new line.');
+    document.body.replaceChildren();
+  });
   it('extracts natural text while excluding own translation, hidden text and sensitive inputs', () => {
     const element = document.createElement('p');
     element.innerHTML = 'Read <strong>good ideas</strong> with <a href="#a">your team</a>.<span data-pr-owned="translation">中文译文</span><span hidden>HIDDEN</span><textarea>PRIVATE</textarea><span style="display:none">HIDDEN CSS</span>';
@@ -102,6 +108,13 @@ describe('source ownership and privacy', () => {
 });
 
 describe('generic content ownership', () => {
+  it('keeps inline-flex mentions inside their reading block instead of fragmenting the post', () => {
+    document.body.innerHTML = '<article><div id="copy">Reading with <a style="display:inline-flex" href="/person">a friend</a> helps people learn.</div></article>';
+    const found = [...candidates(document.body)];
+    expect(found).toHaveLength(1); expect(found[0]?.id).toBe('copy');
+    expect(sourceText(found[0]!)).toBe('Reading with a friend helps people learn.');
+    document.body.replaceChildren();
+  });
   it('finds natural article blocks without site classes or test attributes', () => {
     document.body.innerHTML = '<article><header><div id="author">Someone who shares interesting ideas about the world</div><a rel="bookmark" href="/notes/42">Today</a></header><div id="text">A useful thought about reading and learning from the people around us.</div><button>Like 12</button></article>';
     const text = document.querySelector('#text')!;

@@ -52,7 +52,10 @@ export function styleTranslation(node: HTMLElement, source: HTMLElement, setting
     color: secondaryColor(foreground, backgroundFor(node.parentElement ?? placement(source)?.parent ?? source)), opacity: '1',
     margin: inline ? '0 0 0 .4em' : '5px 0 0', padding: '0', border: '0', background: 'transparent',
     position: 'static', float: 'none', width: 'auto', height: 'auto', 'min-width': '0',
-    'white-space': inline ? 'nowrap' : 'pre-line', 'flex-shrink': inline ? '0' : '1', 'overflow-wrap': 'anywhere', 'word-break': 'normal',
+    // Inline text can contain an entire post, not just a short UI label. Allow
+    // it to wrap even when an ancestor uses nowrap; layoutFits still protects
+    // fixed-height controls from extra lines.
+    'white-space': 'pre-line', 'flex-shrink': '1', 'max-width': '100%', 'overflow-wrap': 'anywhere', 'word-break': 'normal',
     visibility: 'visible', 'user-select': 'text', 'max-height': 'none',
     transition: 'none', animation: 'none', '-webkit-text-fill-color': 'currentColor',
   });
